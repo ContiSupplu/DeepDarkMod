@@ -88,8 +88,6 @@ public class EchoSoulEntity extends Monster {
 
     public EchoSoulEntity(EntityType<? extends Monster> type, Level level) {
         super(type, level);
-        // No gravity — spirits float
-        this.setNoGravity(true);
     }
 
     // ── Attributes ───────────────────────────────────────────────────
@@ -450,8 +448,8 @@ public class EchoSoulEntity extends Monster {
             return;
         }
 
-        // Light deters — if the soul is in a bright area, hesitate
-        int lightLevel = level.getMaxLocalRawBrightness(this.blockPosition());
+        // Light deters — only block light (torches/lamps), not skylight
+        int lightLevel = level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, this.blockPosition());
         if (lightLevel >= OthersideConfig.SERVER.echoSoulLightDeterLevel.get()) {
             // Slow down in bright areas
             this.getNavigation().moveTo(cachedTarget, 0.3);
@@ -586,8 +584,8 @@ public class EchoSoulEntity extends Monster {
         int range = OthersideConfig.SERVER.echoSoulDetectRange.get();
         int lightDeter = OthersideConfig.SERVER.echoSoulLightDeterLevel.get();
 
-        // Don't detect in bright light
-        if (level.getMaxLocalRawBrightness(this.blockPosition()) >= lightDeter) {
+        // Don't detect in bright block light (torches/lamps the player places)
+        if (level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, this.blockPosition()) >= lightDeter) {
             return null;
         }
 
@@ -651,16 +649,7 @@ public class EchoSoulEntity extends Monster {
         }
     }
 
-    // ── Gravity override (spirits float) ─────────────────────────────
-    @Override
-    public void travel(Vec3 travelVector) {
-        if (this.isControlledByLocalInstance()) {
-            // Move like normal but ignore gravity — gentle float
-            this.moveRelative(this.getSpeed(), travelVector);
-            this.move(MoverType.SELF, this.getDeltaMovement());
-            this.setDeltaMovement(this.getDeltaMovement().scale(0.9)); // friction
-        }
-    }
+
 
     // ── Serialization (non-persistent, minimal) ──────────────────────
     @Override

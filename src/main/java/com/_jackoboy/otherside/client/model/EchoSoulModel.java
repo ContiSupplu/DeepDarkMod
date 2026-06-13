@@ -7,6 +7,7 @@ import net.minecraft.client.model.geom.ModelLayerLocation;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.client.model.geom.builders.*;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 
@@ -40,7 +41,7 @@ public class EchoSoulModel<T extends EchoSoulEntity> extends HierarchicalModel<T
         PartDefinition root = mesh.getRoot();
         PartDefinition p_soul = root.addOrReplaceChild("soul",
                 CubeListBuilder.create(),
-                PartPose.offset(0F,-14F,0F));
+                PartPose.offset(0F, 10F, 0F));
         PartDefinition p_body = p_soul.addOrReplaceChild("body",
                 CubeListBuilder.create()
                     .texOffs(16,16).addBox(-4F,0F,-2F, 8F,12F,4F)

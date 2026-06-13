@@ -2,9 +2,14 @@ package com._jackoboy.otherside.client.renderer;
 
 import com._jackoboy.otherside.client.model.EchoSoulModel;
 import com._jackoboy.otherside.entity.EchoSoulEntity;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
 import net.minecraft.client.renderer.entity.MobRenderer;
 import net.minecraft.resources.ResourceLocation;
+
+import javax.annotation.Nullable;
 
 public class EchoSoulRenderer extends MobRenderer<EchoSoulEntity, EchoSoulModel<EchoSoulEntity>> {
 
@@ -18,6 +23,12 @@ public class EchoSoulRenderer extends MobRenderer<EchoSoulEntity, EchoSoulModel<
     @Override
     public ResourceLocation getTextureLocation(EchoSoulEntity entity) {
         return TEXTURE;
+    }
+
+    @Nullable
+    @Override
+    protected RenderType getRenderType(EchoSoulEntity entity, boolean bodyVisible, boolean translucent, boolean glowing) {
+        return RenderType.entityTranslucent(TEXTURE);
     }
 
     @Override
