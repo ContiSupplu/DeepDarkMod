@@ -44,12 +44,14 @@ public class MawTentacleModel<T extends MawTentacleEntity> extends HierarchicalM
         float taper = (baseWidth - 2.4f) / 8.0f;
         float collarR = 10.0f;
 
+        // All texOffs point to the dark sculk region at top of the 256x256 sheet.
+        // The real bbmodel UVs are packed in rows 0-24; placeholder cubes sample from there.
         int[] collarAngles = {20, 95, 170, 250, 320};
         for (int angle : collarAngles) {
             double rad = Math.toRadians(angle);
             rootPart.addOrReplaceChild("collar_" + angle,
                     CubeListBuilder.create()
-                            .texOffs(200, angle / 2)
+                            .texOffs(0, 0)
                             .addBox(-2.0f, 0.0f, -2.0f, 4.0f, 3.0f, 4.0f),
                     PartPose.offset(
                             (float)(Math.cos(rad) * collarR),
@@ -63,12 +65,11 @@ public class MawTentacleModel<T extends MawTentacleEntity> extends HierarchicalM
         for (int i = 0; i <= 8; i++) {
             float w = baseWidth - i * taper;
             float half = w / 2.0f;
-            int texY = i * 28;
 
             // Segments stack in -Y (upward after renderer's Y-flip)
             PartDefinition seg = current.addOrReplaceChild("seg" + i,
                     CubeListBuilder.create()
-                            .texOffs(0, texY)
+                            .texOffs(0, 0)
                             .addBox(-half, -segHeight, -half, w, segHeight, w),
                     PartPose.offset(0.0f, i == 0 ? 0.0f : -segHeight, 0.0f));
 
@@ -76,7 +77,7 @@ public class MawTentacleModel<T extends MawTentacleEntity> extends HierarchicalM
             float octW = w * 0.7071f;
             seg.addOrReplaceChild("seg" + i + "_oct",
                     CubeListBuilder.create()
-                            .texOffs(64, texY)
+                            .texOffs(0, 0)
                             .addBox(-octHalf, -segHeight, -octHalf, octW, segHeight, octW),
                     PartPose.offsetAndRotation(0.0f, 0.0f, 0.0f, 0.0f, (float)(Math.PI / 4.0), 0.0f));
 
@@ -84,7 +85,7 @@ public class MawTentacleModel<T extends MawTentacleEntity> extends HierarchicalM
                 if (f == i) {
                     seg.addOrReplaceChild("fin" + i + "_rot",
                             CubeListBuilder.create()
-                                    .texOffs(128, i * 16)
+                                    .texOffs(0, 0)
                                     .addBox(-half - 3.0f, -segHeight, -0.5f, w + 6.0f, segHeight, 1.0f),
                             PartPose.ZERO);
                     break;
@@ -96,7 +97,7 @@ public class MawTentacleModel<T extends MawTentacleEntity> extends HierarchicalM
 
         PartDefinition tip = current.addOrReplaceChild("tip",
                 CubeListBuilder.create()
-                        .texOffs(0, 252)
+                        .texOffs(0, 0)
                         .addBox(-1.2f, -6.0f, -1.2f, 2.4f, 6.0f, 2.4f),
                 PartPose.offset(0.0f, -segHeight, 0.0f));
 
@@ -106,7 +107,7 @@ public class MawTentacleModel<T extends MawTentacleEntity> extends HierarchicalM
             float hookR = 2.0f;
             tip.addOrReplaceChild("hook_" + angle,
                     CubeListBuilder.create()
-                            .texOffs(180, angle / 3)
+                            .texOffs(0, 0)
                             .addBox(-0.5f, -4.0f, -0.5f, 1.0f, 4.0f, 1.0f),
                     PartPose.offset(
                             (float)(Math.cos(rad) * hookR),

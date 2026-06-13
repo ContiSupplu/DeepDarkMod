@@ -178,7 +178,11 @@ public class MawManager {
         if (throatPhaseTimer == 1) {
             // Phase 1: crack — play tremor sound, open center via dismantling
             level.playSound(null, throatPos, SoundEvents.SCULK_SHRIEKER_SHRIEK,
-                    SoundSource.HOSTILE, 1.0f, 0.5f);
+                    SoundSource.HOSTILE, 2.0f, 0.5f);
+            // Also play at surface level to ensure audibility
+            BlockPos surfaceAbove = throatPos.above();
+            level.playSound(null, surfaceAbove, SoundEvents.SCULK_CATALYST_BLOOM,
+                    SoundSource.HOSTILE, 3.0f, 0.3f);
             // Remove center block (respects amethyst)
             if (!MawTentacleEntity.isAmethystAnchored(throatPos, level)) {
                 level.setBlock(throatPos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
@@ -200,6 +204,11 @@ public class MawManager {
 
             // Spawn tentacle ring
             spawnTentacleRing(level, beast);
+
+            // Loud arrival sound
+            level.playSound(null, throatPos, SoundEvents.WARDEN_EMERGE,
+                    SoundSource.HOSTILE, 2.0f, 0.6f);
+
             DirectorLog.log(level, "MAW_OPEN", throatPos,
                     "tentacles=" + tentacleEntityIds.size() + " throat=" + (radius * 2 + 1) + "x" + (radius * 2 + 1));
         }
@@ -620,6 +629,9 @@ public class MawManager {
                 int x = playerPos.getX() + dx;
                 int z = playerPos.getZ() + dz;
                 int surfaceY = level.getHeight(Heightmap.Types.WORLD_SURFACE, x, z);
+                // surfaceY is the Y of the first air block above ground;
+                // the actual ground block is at surfaceY-1.
+                // Place throat AT the ground block so it gets broken visibly.
                 BlockPos candidate = new BlockPos(x, surfaceY - 1, z);
 
                 if (!level.isLoaded(candidate)) continue;
