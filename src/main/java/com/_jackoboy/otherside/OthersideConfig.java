@@ -98,6 +98,11 @@ public class OthersideConfig {
         public final ModConfigSpec.IntValue echoSoulTeleportCooldownTicks;
         public final ModConfigSpec.IntValue echoSoulTeleportRange;
         public final ModConfigSpec.IntValue echoSoulTeleportTriggerDist;
+        public final ModConfigSpec.BooleanValue echoSoulCascadeEnabled;
+        public final ModConfigSpec.IntValue echoSoulCascadeCount;
+        public final ModConfigSpec.DoubleValue echoSoulCascadeHealthPct;
+        public final ModConfigSpec.IntValue echoSoulNoTargetDespawnTicks;
+        public final ModConfigSpec.BooleanValue echoSoulLeashToClaimed;
 
         // Director
         public final ModConfigSpec.BooleanValue directorChatFeed;
@@ -295,6 +300,16 @@ public class OthersideConfig {
                     .defineInRange("echoSoulTeleportRange", 16, 4, 32);
             echoSoulTeleportTriggerDist = builder.comment("Blink to close gaps when farther than this while chasing")
                     .defineInRange("echoSoulTeleportTriggerDist", 8, 3, 24);
+            echoSoulCascadeEnabled = builder.comment("Near-death souls birth more (bounded by globalCap)")
+                    .define("echoSoulCascadeEnabled", true);
+            echoSoulCascadeCount = builder.comment("How many each dying soul spawns")
+                    .defineInRange("echoSoulCascadeCount", 3, 1, 8);
+            echoSoulCascadeHealthPct = builder.comment("Health fraction that triggers the split")
+                    .defineInRange("echoSoulCascadeHealthPct", 0.3, 0.05, 0.8);
+            echoSoulNoTargetDespawnTicks = builder.comment("Grace ticks with no target before fading (~6s = 120)")
+                    .defineInRange("echoSoulNoTargetDespawnTicks", 120, 20, 1200);
+            echoSoulLeashToClaimed = builder.comment("Souls confined to claimed territory")
+                    .define("echoSoulLeashToClaimed", true);
             builder.pop();
 
             builder.push("director");

@@ -3,6 +3,7 @@ package com._jackoboy.otherside.entity;
 import com._jackoboy.otherside.OthersideConfig;
 import com._jackoboy.otherside.OthersideMod;
 import com._jackoboy.otherside.director.DirectorLog;
+import com._jackoboy.otherside.infection.WorldbeastState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
@@ -10,6 +11,7 @@ import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
@@ -19,11 +21,9 @@ import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LightLayer;
-import net.minecraft.world.level.block.AmethystBlock;
-import net.minecraft.world.level.block.AmethystClusterBlock;
-import net.minecraft.world.level.block.BuddingAmethystBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.AABB;
@@ -34,7 +34,7 @@ import java.util.*;
 
 /**
  * Echo Soul — the beast's spawned hunter spirit.
- * Server-driven state machine with enderman-style teleport, dynamic head tracking, and full sounds.
+ * v4: emerge anim fix, death wail, cascade spawning, frontier leash, no-target despawn.
  */
 public class EchoSoulEntity extends Monster {
 
@@ -42,13 +42,14 @@ public class EchoSoulEntity extends Monster {
     public enum SoulState {
         EMERGING, WANDER, STALK, LOCK, CHASE,
         ATTACK_SWIPE, ATTACK_SLAM, ATTACK_LUNGE, ATTACK_FLURRY,
-        SCREAM, HURT, DISSIPATING
+        SCREAM, HURT, DISSIPATING,
+        DEATH_WAIL  // §1: wail before dissolving (at the END so ordinals don't shift)
     }
 
     private static final EntityDataAccessor<Integer> DATA_STATE =
             SynchedEntityData.defineId(EchoSoulEntity.class, EntityDataSerializers.INT);
 
-    // ── Animation states (client-side) — matches EchoSoulModel contract ──
+    // ── Animation states ─────────────────────────────────────────────
     public final AnimationState idleFloatState   = new AnimationState();
     public final AnimationState yearnState       = new AnimationState();
     public final AnimationState stalkState       = new AnimationState();
@@ -75,15 +76,24 @@ public class EchoSoulEntity extends Monster {
     private int reabsorbTimer = 0;
     private boolean spawnedAware = false;
 
-    // §6: anti-thrash
-    private boolean hasLockedThisTarget = false; // only LOCK the first acquisition
-    private int losLostTimer = 0;               // grace period before losing chase
+    // v2: anti-thrash
+    private boolean hasLockedThisTarget = false;
+    private int losLostTimer = 0;
 
-    // §7: teleport
+    // v2: teleport
     private int teleportCooldown = 0;
 
-    // §1: ambient sound
+    // v2: ambient sound
     private int ambientSoundTimer = 0;
+
+    // v4 §0: client anim init fix
+    private boolean clientAnimInit = false;
+
+    // v4 §2: cascade
+    private boolean hasSplit = false;
+
+    // v4 §4: no-target despawn
+    private int noTargetTimer = 0;
 
     // ── Spawn mode ───────────────────────────────────────────────────
     public enum SpawnMode { DANGER, NATURAL }
@@ -137,6 +147,16 @@ public class EchoSoulEntity extends Monster {
         }
     }
 
+    // §0: start initial animation on first client tick
+    @Override
+    public void tick() {
+        super.tick();
+        if (this.level().isClientSide && !clientAnimInit) {
+            clientAnimInit = true;
+            startAnimationForState(getState());
+        }
+    }
+
     private void stopAllAnimations() {
         idleFloatState.stop(); yearnState.stop(); stalkState.stop();
         detectLockState.stop(); chaseState.stop();
@@ -158,6 +178,7 @@ public class EchoSoulEntity extends Monster {
             case SCREAM -> screamState.start(this.tickCount);
             case HURT -> hurtState.start(this.tickCount);
             case DISSIPATING -> dissipateState.start(this.tickCount);
+            case DEATH_WAIL -> screamState.start(this.tickCount); // reuse scream clip for death wail
         }
     }
 
@@ -184,6 +205,10 @@ public class EchoSoulEntity extends Monster {
         if (player != null) { this.targetUUID = player.getUUID(); this.cachedTarget = player; }
     }
 
+    /** Expose the current target for cascade spawn (manager hands children the same prey). */
+    @Nullable
+    public Player getCurrentTargetPlayer() { return cachedTarget; }
+
     // ── Damage / death ───────────────────────────────────────────────
     @Override
     public boolean hurt(DamageSource source, float amount) {
@@ -191,18 +216,26 @@ public class EchoSoulEntity extends Monster {
         boolean result = super.hurt(source, amount);
         if (result && !this.level().isClientSide) {
             ServerLevel level = (ServerLevel) this.level();
-            // §1: hurt sound
             level.playSound(null, this.blockPosition(), SoundEvents.WARDEN_HURT,
                     SoundSource.HOSTILE, 0.8F, 1.5F);
 
             SoulState s = getState();
-            // Cancel attack windups on hit (player's stagger window)
-            if (s == SoulState.ATTACK_SWIPE || s == SoulState.ATTACK_SLAM
-                    || s == SoulState.ATTACK_LUNGE || s == SoulState.ATTACK_FLURRY
-                    || (s != SoulState.HURT && s != SoulState.DISSIPATING && s != SoulState.EMERGING)) {
+            if (s != SoulState.HURT && s != SoulState.DISSIPATING
+                    && s != SoulState.EMERGING && s != SoulState.DEATH_WAIL) {
                 setState(SoulState.HURT);
             }
-            // Scream trigger when badly hurt
+
+            // §2: cascade at low health
+            float cascadePct = (float) OthersideConfig.SERVER.echoSoulCascadeHealthPct.get().doubleValue();
+            if (this.getHealth() < this.getMaxHealth() * cascadePct
+                    && !hasSplit && OthersideConfig.SERVER.echoSoulCascadeEnabled.get()) {
+                hasSplit = true;
+                setState(SoulState.SCREAM);
+                WorldbeastState beast = WorldbeastState.get(level);
+                beast.getEchoSoulManager().cascadeSpawn(level, this,
+                        OthersideConfig.SERVER.echoSoulCascadeCount.get());
+            }
+
             if (this.getHealth() < this.getMaxHealth() * 0.3f && !hasScreamed) {
                 hasScreamed = true;
             }
@@ -214,13 +247,11 @@ public class EchoSoulEntity extends Monster {
     public void die(DamageSource source) {
         if (!this.level().isClientSide && !isDissipating) {
             isDissipating = true;
-            setState(SoulState.DISSIPATING);
+            // §1: death wail before dissolving
+            setState(SoulState.DEATH_WAIL);
             ServerLevel level = (ServerLevel) this.level();
-            // §1: dissipate sounds
-            level.playSound(null, this.blockPosition(), SoundEvents.SOUL_ESCAPE.value(),
-                    SoundSource.HOSTILE, 1.0F, 0.8F);
-            level.playSound(null, this.blockPosition(), SoundEvents.SCULK_CATALYST_BLOOM,
-                    SoundSource.HOSTILE, 0.6F, 0.6F);
+            level.playSound(null, this.blockPosition(), SoundEvents.WARDEN_DEATH,
+                    SoundSource.HOSTILE, 1.2F, 0.7F);
 
             if (source.getEntity() instanceof Player player) {
                 DirectorLog.log(level, "ECHO_SOUL_KILLED", this.blockPosition(),
@@ -257,7 +288,7 @@ public class EchoSoulEntity extends Monster {
             this.getLookControl().setLookAt(cachedTarget, (float) getMaxHeadYRot(), (float) getMaxHeadXRot());
         }
 
-        // §1: ambient sound (whispers while hunting)
+        // Ambient sound whispers
         ambientSoundTimer++;
         SoulState currentState = getState();
         if ((currentState == SoulState.WANDER || currentState == SoulState.STALK || currentState == SoulState.CHASE)
@@ -267,8 +298,8 @@ public class EchoSoulEntity extends Monster {
             ambientSoundTimer = 0;
         }
 
-        // Reabsorption timer
-        if (currentState != SoulState.DISSIPATING && currentState != SoulState.EMERGING) {
+        // Reabsorption timer (far from all players)
+        if (currentState != SoulState.DISSIPATING && currentState != SoulState.EMERGING && currentState != SoulState.DEATH_WAIL) {
             boolean nearPlayer = false;
             for (Player p : level.players()) {
                 if (p.distanceToSqr(this) < 48 * 48) { nearPlayer = true; break; }
@@ -281,6 +312,20 @@ public class EchoSoulEntity extends Monster {
                 }
             } else {
                 reabsorbTimer = 0;
+            }
+        }
+
+        // §3: pull back if outside claimed territory
+        if (currentState != SoulState.DISSIPATING && currentState != SoulState.EMERGING
+                && currentState != SoulState.DEATH_WAIL) {
+            if (!inClaimedTerritory(this.blockPosition())) {
+                // Outside claimed land — stop chasing, head back
+                if (currentState == SoulState.CHASE || currentState == SoulState.STALK || currentState == SoulState.LOCK) {
+                    cachedTarget = null;
+                    targetUUID = null;
+                    hasLockedThisTarget = false;
+                    setState(SoulState.WANDER);
+                }
             }
         }
 
@@ -298,13 +343,14 @@ public class EchoSoulEntity extends Monster {
             case SCREAM -> tickScream(level);
             case HURT -> tickHurt(level);
             case DISSIPATING -> tickDissipate(level);
+            case DEATH_WAIL -> tickDeathWail(level);
         }
     }
 
     // ── State handlers ───────────────────────────────────────────────
 
     private void tickEmerging(ServerLevel level) {
-        if (stateTimer >= 130) { // SPAWN_EMERGE = 6.5s
+        if (stateTimer >= 130) {
             if (spawnedAware && cachedTarget != null) {
                 setState(SoulState.STALK);
             } else {
@@ -314,16 +360,28 @@ public class EchoSoulEntity extends Monster {
     }
 
     private void tickWander(ServerLevel level) {
-        // §2: detect every 5 ticks (not 10)
+        // Detection every 5 ticks
         if (stateTimer % 5 == 0) {
             Player detected = detectPlayer(level);
             if (detected != null) {
                 targetUUID = detected.getUUID();
                 cachedTarget = detected;
                 hasLockedThisTarget = false;
+                noTargetTimer = 0;
                 setState(SoulState.STALK);
                 return;
             }
+        }
+
+        // §4: no-target despawn
+        if (cachedTarget == null) {
+            noTargetTimer++;
+            if (noTargetTimer >= OthersideConfig.SERVER.echoSoulNoTargetDespawnTicks.get()) {
+                startDissipate("no_target");
+                return;
+            }
+        } else {
+            noTargetTimer = 0;
         }
 
         // Alternate idle_float / yearn
@@ -333,7 +391,7 @@ public class EchoSoulEntity extends Monster {
             wanderCycleCount++;
             setState(SoulState.WANDER);
 
-            // §2: bias drift toward nearby players in claimed territory
+            // Bias drift toward nearest player in claimed territory
             Player nearestPlayer = null;
             double nearestDist = 48 * 48;
             for (Player p : level.players()) {
@@ -343,14 +401,20 @@ public class EchoSoulEntity extends Monster {
             }
 
             if (nearestPlayer != null && wanderCycleCount % 2 == 0) {
-                // Drift toward the player (biased, not direct)
                 double dx = (nearestPlayer.getX() - this.getX()) * 0.3 + (this.random.nextDouble() - 0.5) * 4;
                 double dz = (nearestPlayer.getZ() - this.getZ()) * 0.3 + (this.random.nextDouble() - 0.5) * 4;
-                this.getNavigation().moveTo(this.getX() + dx, this.getY(), this.getZ() + dz, 0.5);
+                // §3: don't wander out of claimed territory
+                BlockPos driftTarget = BlockPos.containing(this.getX() + dx, this.getY(), this.getZ() + dz);
+                if (inClaimedTerritory(driftTarget)) {
+                    this.getNavigation().moveTo(driftTarget.getX(), driftTarget.getY(), driftTarget.getZ(), 0.5);
+                }
             } else if (wanderCycleCount % 2 == 0) {
                 double dx = (this.random.nextDouble() - 0.5) * 8;
                 double dz = (this.random.nextDouble() - 0.5) * 8;
-                this.getNavigation().moveTo(this.getX() + dx, this.getY(), this.getZ() + dz, 0.5);
+                BlockPos driftTarget = BlockPos.containing(this.getX() + dx, this.getY(), this.getZ() + dz);
+                if (inClaimedTerritory(driftTarget)) {
+                    this.getNavigation().moveTo(driftTarget.getX(), driftTarget.getY(), driftTarget.getZ(), 0.5);
+                }
             }
         }
     }
@@ -358,12 +422,17 @@ public class EchoSoulEntity extends Monster {
     private void tickStalk(ServerLevel level) {
         if (cachedTarget == null) { setState(SoulState.WANDER); return; }
 
+        // §3: don't chase past the frontier
+        if (!inClaimedTerritory(cachedTarget.blockPosition())) {
+            cachedTarget = null; targetUUID = null; hasLockedThisTarget = false;
+            setState(SoulState.WANDER); return;
+        }
+
         if (isNearAmethyst(cachedTarget.blockPosition())) {
             cachedTarget = null; targetUUID = null; hasLockedThisTarget = false;
             setState(SoulState.WANDER); return;
         }
 
-        // §5: detect every 5 ticks in stalk too
         this.getNavigation().moveTo(cachedTarget, 0.6);
         double dist = this.distanceTo(cachedTarget);
         int detectRange = OthersideConfig.SERVER.echoSoulDetectRange.get();
@@ -374,7 +443,6 @@ public class EchoSoulEntity extends Monster {
         }
 
         if (dist < detectRange && hasLineOfSight(cachedTarget)) {
-            // §6: only LOCK the first time; re-engagement goes straight to CHASE
             if (!hasLockedThisTarget) {
                 setState(SoulState.LOCK);
                 hasLockedThisTarget = true;
@@ -383,8 +451,6 @@ public class EchoSoulEntity extends Monster {
                 level.playSound(null, this.blockPosition(), SoundEvents.SCULK_SHRIEKER_SHRIEK,
                         SoundSource.HOSTILE, 0.6F, 1.8F);
             } else {
-                // Already locked this target before — skip to chase
-                // §1: chase start sound
                 level.playSound(null, this.blockPosition(), SoundEvents.SOUL_ESCAPE.value(),
                         SoundSource.HOSTILE, 0.8F, 1.4F);
                 setState(SoulState.CHASE);
@@ -405,7 +471,6 @@ public class EchoSoulEntity extends Monster {
 
         int lockDuration = OthersideConfig.SERVER.echoSoulLockHoldTicks.get();
         if (stateTimer >= lockDuration) {
-            // §1: chase start sound on transition
             level.playSound(null, this.blockPosition(), SoundEvents.SOUL_ESCAPE.value(),
                     SoundSource.HOSTILE, 0.8F, 1.4F);
             setState(SoulState.CHASE);
@@ -418,9 +483,15 @@ public class EchoSoulEntity extends Monster {
             setState(SoulState.WANDER); return;
         }
 
+        // §3: don't chase past the frontier
+        if (!inClaimedTerritory(cachedTarget.blockPosition())) {
+            cachedTarget = null; targetUUID = null; hasLockedThisTarget = false;
+            setState(SoulState.WANDER); return;
+        }
+
         double dist = this.distanceTo(cachedTarget);
 
-        // §6: LOS-loss grace (40 ticks before downgrading, not instant)
+        // LOS-loss grace (40 ticks before downgrading)
         if (!hasLineOfSight(cachedTarget)) {
             losLostTimer++;
             if (losLostTimer >= 40) {
@@ -437,21 +508,19 @@ public class EchoSoulEntity extends Monster {
         if (lightLevel >= OthersideConfig.SERVER.echoSoulLightDeterLevel.get()) {
             this.getNavigation().moveTo(cachedTarget, 0.3);
         } else {
-            // §4/§7: teleport when far or path stalled
+            // Teleport when far or path stalled
             int triggerDist = OthersideConfig.SERVER.echoSoulTeleportTriggerDist.get();
             if ((dist > triggerDist || this.getNavigation().isDone()) && dist > 3.0) {
                 if (tryTeleportNear(level, cachedTarget)) return;
             }
-            // Also random chance each second while chasing — unpredictability
             if (stateTimer % 20 == 0 && this.random.nextFloat() < 0.15f && dist > 4.0) {
                 if (tryTeleportNear(level, cachedTarget)) return;
             }
             this.getNavigation().moveTo(cachedTarget, 1.0);
         }
 
-        // §5: attack at dist < 3.0, lunge from 2.5-4.5
+        // Attack ranges
         if (dist < 4.5 && dist > 2.5) {
-            // Lunge range — gap-close attack
             if (lastAttack != SoulState.ATTACK_LUNGE) {
                 lastAttack = SoulState.ATTACK_LUNGE;
                 this.getNavigation().stop();
@@ -460,7 +529,7 @@ public class EchoSoulEntity extends Monster {
             }
         }
         if (dist < 3.0) {
-            this.getNavigation().stop(); // §5: plant to strike
+            this.getNavigation().stop();
             pickAttack(dist);
         }
     }
@@ -478,31 +547,26 @@ public class EchoSoulEntity extends Monster {
         SoulState chosen = options.get(this.random.nextInt(options.size()));
         lastAttack = chosen;
 
-        // §1: attack swing sound
         ServerLevel level = (ServerLevel) this.level();
         level.playSound(null, this.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP,
                 SoundSource.HOSTILE, 0.7F, 0.8F + this.random.nextFloat() * 0.4F);
-
         setState(chosen);
     }
 
     private void tickAttack(ServerLevel level, int durationTicks) {
         if (cachedTarget == null) { setState(SoulState.CHASE); return; }
 
-        // §5: hit at the contact frame (60% through)
         int hitFrame = (int) (durationTicks * 0.6);
         if (stateTimer == hitFrame) {
             if (this.distanceTo(cachedTarget) < 3.5) {
                 float damage = (float) this.getAttributeValue(Attributes.ATTACK_DAMAGE);
                 if (getState() == SoulState.ATTACK_SLAM) damage *= 1.5f;
                 cachedTarget.hurt(this.damageSources().mobAttack(this), damage);
-                // §1: hit impact sound
                 level.playSound(null, cachedTarget.blockPosition(), SoundEvents.WARDEN_ATTACK_IMPACT,
                         SoundSource.HOSTILE, 0.8F, 1.0F);
             }
         }
 
-        // Flurry second hit
         if (getState() == SoulState.ATTACK_FLURRY) {
             int secondHit = (int) (durationTicks * 0.85);
             if (stateTimer == secondHit && this.distanceTo(cachedTarget) < 3.5) {
@@ -513,19 +577,15 @@ public class EchoSoulEntity extends Monster {
             }
         }
 
-        if (stateTimer >= durationTicks) {
-            setState(SoulState.CHASE);
-        }
+        if (stateTimer >= durationTicks) { setState(SoulState.CHASE); }
     }
 
     private void tickScream(ServerLevel level) {
         if (stateTimer == 1) {
-            // §1: scream sound
             level.playSound(null, this.blockPosition(), SoundEvents.SCULK_SHRIEKER_SHRIEK,
                     SoundSource.HOSTILE, 1.2F, 0.8F);
             DirectorLog.log(level, "ECHO_SOUL_SCREAM", this.blockPosition(), "");
 
-            // Alert nearby souls
             if (cachedTarget != null) {
                 for (EchoSoulEntity soul : level.getEntitiesOfClass(EchoSoulEntity.class,
                         this.getBoundingBox().inflate(32))) {
@@ -537,7 +597,6 @@ public class EchoSoulEntity extends Monster {
                 }
             }
 
-            // Gentle dread pulse (2s darkness)
             for (Player player : level.players()) {
                 if (player.distanceToSqr(this) < 16 * 16) {
                     player.addEffect(new net.minecraft.world.effect.MobEffectInstance(
@@ -549,12 +608,10 @@ public class EchoSoulEntity extends Monster {
     }
 
     private void tickHurt(ServerLevel level) {
-        if (stateTimer >= 9) { // HURT = 0.45s = 9 ticks
-            // §7: blink away on hurt (escape + reposition)
+        if (stateTimer >= 9) {
             if (cachedTarget != null) {
                 tryTeleportNear(level, cachedTarget);
             }
-            // Scream if badly hurt
             if (this.getHealth() < this.getMaxHealth() * 0.3f && hasScreamed) {
                 setState(SoulState.SCREAM);
                 hasScreamed = false;
@@ -566,8 +623,20 @@ public class EchoSoulEntity extends Monster {
         }
     }
 
+    // §1: death wail — wail then dissolve
+    private void tickDeathWail(ServerLevel level) {
+        if (stateTimer >= 38) { // SCREAM_WAIL = 38 ticks
+            setState(SoulState.DISSIPATING);
+        }
+    }
+
     private void tickDissipate(ServerLevel level) {
-        if (stateTimer >= 44) { // DISSIPATE = 2.2s
+        if (stateTimer == 1) {
+            // Dissipate sounds (in case we arrived here from death_wail or startDissipate)
+            level.playSound(null, this.blockPosition(), SoundEvents.SOUL_ESCAPE.value(),
+                    SoundSource.HOSTILE, 0.8F, 0.6F);
+        }
+        if (stateTimer >= 44) {
             for (int i = 0; i < 15; i++) {
                 level.sendParticles(ParticleTypes.SCULK_SOUL, this.getX(), this.getY() + 1, this.getZ(),
                         1, 0.3, 0.5, 0.3, 0.02);
@@ -576,18 +645,14 @@ public class EchoSoulEntity extends Monster {
         }
     }
 
-    // ── §7: TELEPORT (enderman-style blink) ──────────────────────────
+    // ── Teleport ─────────────────────────────────────────────────────
 
-    /**
-     * Enderman-style blink toward a spot near the target. Returns true on success.
-     */
     private boolean tryTeleportNear(ServerLevel level, Player target) {
         if (!OthersideConfig.SERVER.echoSoulTeleportEnabled.get()) return false;
         if (teleportCooldown > 0) return false;
 
         int range = OthersideConfig.SERVER.echoSoulTeleportRange.get();
         for (int attempt = 0; attempt < 12; attempt++) {
-            // 3-7 blocks from target, random direction (favor behind/beside)
             double ang = this.random.nextDouble() * Math.PI * 2;
             double r = 3 + this.random.nextDouble() * 4;
             int tx = Mth.floor(target.getX() + Math.cos(ang) * r);
@@ -599,8 +664,9 @@ public class EchoSoulEntity extends Monster {
             if (!level.getBlockState(dest).getCollisionShape(level, dest).isEmpty()) continue;
             if (isNearAmethyst(dest)) continue;
             if (level.getBrightness(LightLayer.BLOCK, dest) >= OthersideConfig.SERVER.echoSoulLightDeterLevel.get()) continue;
+            // §3: don't teleport outside claimed territory
+            if (!inClaimedTerritory(dest)) continue;
 
-            // Particles + sound at BOTH ends
             spawnBlinkFx(level, this.blockPosition());
             this.teleportTo(tx + 0.5, ty, tz + 0.5);
             spawnBlinkFx(level, dest);
@@ -624,7 +690,6 @@ public class EchoSoulEntity extends Monster {
         int range = OthersideConfig.SERVER.echoSoulDetectRange.get();
         int lightDeter = OthersideConfig.SERVER.echoSoulLightDeterLevel.get();
 
-        // Only block light deters (torches/lamps), not skylight
         if (level.getBrightness(LightLayer.BLOCK, this.blockPosition()) >= lightDeter) {
             return null;
         }
@@ -640,6 +705,14 @@ public class EchoSoulEntity extends Monster {
             if (dist < closestDist) { closestDist = dist; closest = player; }
         }
         return closest;
+    }
+
+    // ── §3: Frontier leash ───────────────────────────────────────────
+    private boolean inClaimedTerritory(BlockPos pos) {
+        if (!OthersideConfig.SERVER.echoSoulLeashToClaimed.get()) return true;
+        if (!(this.level() instanceof ServerLevel level)) return true;
+        Set<Long> claimed = WorldbeastState.get(level).getClaimedChunks();
+        return claimed.contains(ChunkPos.asLong(pos.getX() >> 4, pos.getZ() >> 4));
     }
 
     // ── Counterplay helpers ──────────────────────────────────────────
@@ -661,12 +734,9 @@ public class EchoSoulEntity extends Monster {
         }
     }
 
-    // ── Serialization (non-persistent, minimal) ──────────────────────
+    // ── Serialization ────────────────────────────────────────────────
     @Override public void addAdditionalSaveData(CompoundTag tag) { super.addAdditionalSaveData(tag); }
     @Override public void readAdditionalSaveData(CompoundTag tag) { super.readAdditionalSaveData(tag); }
     @Override public void handleEntityEvent(byte id) { super.handleEntityEvent(id); }
-
-    // Suppress mob AI goals — state machine drives all behavior
-    @Override
-    protected void registerGoals() {}
+    @Override protected void registerGoals() {}
 }

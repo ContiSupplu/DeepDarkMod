@@ -10,6 +10,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.AABB;
 
@@ -334,4 +335,29 @@ public class EchoSoulManager {
     // ── Public accessors ─────────────────────────────────────────────
 
     public int getActiveSoulCount() { return trackedSoulIds.size(); }
+
+    // ── Cascade spawn (called by entity on near-death) ──────────────
+    public void cascadeSpawn(ServerLevel level, EchoSoulEntity parent, int count) {
+        int cap = OthersideConfig.SERVER.echoSoulGlobalCap.get();
+        int room = cap - trackedSoulIds.size();
+        if (room <= 0) return;
+        count = Math.min(count, room);
+
+        Player tgt = parent.getCurrentTargetPlayer();
+        net.minecraft.server.level.ServerPlayer serverTgt =
+                tgt instanceof net.minecraft.server.level.ServerPlayer sp ? sp : null;
+
+        for (int i = 0; i < count; i++) {
+            BlockPos pos = findSpawnPos(level, WorldbeastState.get(level),
+                    parent.blockPosition(), EchoSoulEntity.SpawnMode.DANGER);
+            if (pos == null) continue;
+            spawnSoul(level, pos, EchoSoulEntity.SpawnMode.DANGER, serverTgt);
+        }
+
+        level.playSound(null, parent.blockPosition(),
+                net.minecraft.sounds.SoundEvents.SCULK_SHRIEKER_SHRIEK,
+                net.minecraft.sounds.SoundSource.HOSTILE, 1.0F, 0.5F);
+        DirectorLog.log(level, "ECHO_SOUL_CASCADE", parent.blockPosition(),
+                "requested=" + count + " room=" + room);
+    }
 }
