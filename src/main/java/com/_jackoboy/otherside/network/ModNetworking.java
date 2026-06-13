@@ -19,6 +19,7 @@ public class ModNetworking {
                 (payload, context) -> context.enqueueWork(() -> {
                     ClientBeastData.mass = payload.mass();
                     ClientBeastData.setBreachPositions(payload.breachX(), payload.breachZ());
+                    ClientBeastData.mawActive = payload.mawActive();
                 })
         );
 

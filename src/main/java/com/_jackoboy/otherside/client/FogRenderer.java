@@ -43,9 +43,26 @@ public class FogRenderer {
     private static final float DIM_FOG_NEAR = 4.0f;
     private static final float DIM_FOG_FAR = 56.0f; // ~3.5 chunks visibility
 
+    // ── W3: Maw mood fog ──
+    private static final float MAW_FOG_R = 0.05f;
+    private static final float MAW_FOG_G = 0.08f;
+    private static final float MAW_FOG_B = 0.14f;
+    private static float mawFogIntensity = 0f; // 0..1, smoothed
+
     @SubscribeEvent
     public static void onClientTick(ClientTickEvent.Post event) {
         GloomTracker.tick();
+
+        // W3: Smooth maw fog intensity via synced flag
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player != null && mc.level != null && !mc.level.dimension().equals(OTHERSIDE_DIM)) {
+            float target = ClientBeastData.mawActive ? 1.0f : 0.0f;
+            // Smooth over ~3 seconds (60 ticks)
+            mawFogIntensity = Mth.lerp(0.017f, mawFogIntensity, target);
+            if (mawFogIntensity < 0.01f) mawFogIntensity = 0f;
+        } else {
+            mawFogIntensity = 0f;
+        }
     }
 
     @SubscribeEvent
@@ -66,6 +83,12 @@ public class FogRenderer {
         float g = GloomTracker.get(0);
         float far = 200.0f * (1.0f - g * 1.4f);
         far = Math.max(far, 25.0f);
+
+        // W3: Maw mood — reduce far plane by up to 40%
+        if (mawFogIntensity > 0) {
+            far *= (1.0f - mawFogIntensity * 0.4f);
+        }
+
         float near = 2.0f;
 
         event.setNearPlaneDistance(near);
@@ -91,8 +114,19 @@ public class FogRenderer {
         float g = GloomTracker.get(0);
         float blend = Math.min(g * 1.2f, 1.0f);
 
-        event.setRed(Mth.lerp(blend, event.getRed(), OW_FOG_R));
-        event.setGreen(Mth.lerp(blend, event.getGreen(), OW_FOG_G));
-        event.setBlue(Mth.lerp(blend, event.getBlue(), OW_FOG_B));
+        float r = Mth.lerp(blend, event.getRed(), OW_FOG_R);
+        float gr = Mth.lerp(blend, event.getGreen(), OW_FOG_G);
+        float b = Mth.lerp(blend, event.getBlue(), OW_FOG_B);
+
+        // W3: Maw mood — darken toward deep sculk blue
+        if (mawFogIntensity > 0) {
+            r = Mth.lerp(mawFogIntensity, r, MAW_FOG_R);
+            gr = Mth.lerp(mawFogIntensity, gr, MAW_FOG_G);
+            b = Mth.lerp(mawFogIntensity, b, MAW_FOG_B);
+        }
+
+        event.setRed(r);
+        event.setGreen(gr);
+        event.setBlue(b);
     }
 }

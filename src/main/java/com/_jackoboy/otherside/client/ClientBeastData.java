@@ -9,6 +9,9 @@ public class ClientBeastData {
     // Beast mass (0-100) for fog/gloom calculations
     public static float mass = 0.0f;
 
+    // W3: Whether a Maw is currently active (for fog mood)
+    public static boolean mawActive = false;
+
     // Breach surface breakout positions (synced from server)
     public static int breachCount = 0;
     public static double[] breachX = new double[0];

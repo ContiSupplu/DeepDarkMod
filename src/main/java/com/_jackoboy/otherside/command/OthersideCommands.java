@@ -418,7 +418,8 @@ public class OthersideCommands {
                 bz[i] = surface.getZ();
             }
         }
-        BeastSyncPayload payload = new BeastSyncPayload(beast.getMass(), bx, bz);
+        boolean mawActive = beast.getMawManager().isActive();
+        BeastSyncPayload payload = new BeastSyncPayload(beast.getMass(), bx, bz, mawActive);
         for (ServerPlayer player : level.getServer().getPlayerList().getPlayers()) {
             PacketDistributor.sendToPlayer(player, payload);
         }

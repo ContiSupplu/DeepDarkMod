@@ -58,6 +58,23 @@ public class OthersideConfig {
         public final ModConfigSpec.IntValue painFlinchRadius;
         public final ModConfigSpec.IntValue trainRepeatIntervalTicks;
 
+        // W3 — Maw system
+        public final ModConfigSpec.IntValue mawHungerGate;
+        public final ModConfigSpec.IntValue mawAttentionGate;
+        public final ModConfigSpec.IntValue mawCooldownTicks;
+        public final ModConfigSpec.IntValue mawGraspBaseRadius;
+        public final ModConfigSpec.IntValue mawGraspHungerRadius;
+        public final ModConfigSpec.DoubleValue mawPullPerTick;
+        public final ModConfigSpec.DoubleValue mawDragPerTick;
+        public final ModConfigSpec.IntValue mawDebrisCap;
+        public final ModConfigSpec.IntValue mawEscapeDamage;
+        public final ModConfigSpec.IntValue mawTelegraphLeadMaxSeconds;
+        public final ModConfigSpec.IntValue mawTelegraphLeadMinSeconds;
+        public final ModConfigSpec.IntValue mawDurationTicks;
+        public final ModConfigSpec.IntValue mawDurationFloorTicks;
+        public final ModConfigSpec.IntValue mawTentacleCount;
+        public final ModConfigSpec.BooleanValue baseDismantleEnabled;
+
         // Director
         public final ModConfigSpec.BooleanValue directorChatFeed;
         public final ModConfigSpec.BooleanValue directorLogEnabled;
@@ -175,6 +192,38 @@ public class OthersideConfig {
                     .defineInRange("painFlinchRadius", 64, 16, 256);
             trainRepeatIntervalTicks = builder.comment("Ticks between pulse train repeats during order lead time (§3.2)")
                     .defineInRange("trainRepeatIntervalTicks", 600, 200, 2400);
+
+            // W3 — Maw system
+            mawHungerGate = builder.comment("Min HUNGER for Maw eligibility (RESTLESS)")
+                    .defineInRange("mawHungerGate", 70, 0, 100);
+            mawAttentionGate = builder.comment("Min player ATTENTION for Maw target (HUNTED)")
+                    .defineInRange("mawAttentionGate", 80, 0, 100);
+            mawCooldownTicks = builder.comment("Cooldown ticks between Maws (24000 = 1 in-game day)")
+                    .defineInRange("mawCooldownTicks", 24000, 0, 240000);
+            mawGraspBaseRadius = builder.comment("Base grasp radius in blocks")
+                    .defineInRange("mawGraspBaseRadius", 12, 4, 32);
+            mawGraspHungerRadius = builder.comment("Hunger-scaled addition to grasp radius")
+                    .defineInRange("mawGraspHungerRadius", 12, 0, 32);
+            mawPullPerTick = builder.comment("Max tractor pull speed (blocks/tick)")
+                    .defineInRange("mawPullPerTick", 0.35, 0.05, 1.0);
+            mawDragPerTick = builder.comment("Tentacle drag speed (blocks/tick)")
+                    .defineInRange("mawDragPerTick", 0.15, 0.05, 1.0);
+            mawDebrisCap = builder.comment("Max pulled entities/blocks in grasp field")
+                    .defineInRange("mawDebrisCap", 40, 10, 200);
+            mawEscapeDamage = builder.comment("Cumulative damage to escape a tentacle grab")
+                    .defineInRange("mawEscapeDamage", 8, 1, 50);
+            mawTelegraphLeadMaxSeconds = builder.comment("Max telegraph lead time at ACUITY 0")
+                    .defineInRange("mawTelegraphLeadMaxSeconds", 120, 30, 600);
+            mawTelegraphLeadMinSeconds = builder.comment("Min telegraph lead time at ACUITY 100")
+                    .defineInRange("mawTelegraphLeadMinSeconds", 45, 10, 300);
+            mawDurationTicks = builder.comment("Max duration of an open Maw in ticks (800 = 40s cap)")
+                    .defineInRange("mawDurationTicks", 800, 200, 2400);
+            mawDurationFloorTicks = builder.comment("Min duration before early-seal can trigger (300 = 15s floor)")
+                    .defineInRange("mawDurationFloorTicks", 300, 100, 1200);
+            mawTentacleCount = builder.comment("Number of tentacles in the Maw ring")
+                    .defineInRange("mawTentacleCount", 6, 4, 8);
+            baseDismantleEnabled = builder.comment("Enable base dismantling during active Maw")
+                    .define("baseDismantleEnabled", true);
             builder.pop();
 
             builder.push("director");

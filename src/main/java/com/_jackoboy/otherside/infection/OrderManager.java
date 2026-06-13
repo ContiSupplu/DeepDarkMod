@@ -44,6 +44,7 @@ public class OrderManager {
         BREAKOUT,
         /** 2-2-2 stutter — front ×2 for 1 day + Sore attempt + drone convergence */
         RETALIATION,
+        MAW,
         /** pulseOmni outward — instant, cosmetic + drone agitation */
         FLINCH
     }
@@ -254,7 +255,7 @@ public class OrderManager {
 
         // ── SATED gating ───────────────────────────────────────────────
         if (beast.isSated()) {
-            if (type == OrderType.SURGE || type == OrderType.BREAKOUT) {
+            if (type == OrderType.SURGE || type == OrderType.BREAKOUT || type == OrderType.MAW) {
                 OthersideMod.LOGGER.debug("[ORDER] Rejected {} — beast is SATED", type);
                 return;
             }
@@ -300,7 +301,8 @@ public class OrderManager {
             case SURGE -> VeinNetwork.sendSurgeTrain(level, pulseOrigin, target);
             case BREAKOUT -> VeinNetwork.sendBreakoutTrain(level, pulseOrigin, target);
             case RETALIATION -> VeinNetwork.sendRetaliationTrain(level, pulseOrigin, target);
-            default -> {} // FLINCH already handled above
+            case MAW -> VeinNetwork.sendBreakoutTrain(level, pulseOrigin, target);
+            default -> {}
         }
 
         // ── Create and store VeinOrder ─────────────────────────────────
@@ -315,6 +317,7 @@ public class OrderManager {
             case SURGE -> "SURGE_ORDER";
             case BREAKOUT -> "BREAKOUT_ORDER";
             case RETALIATION -> "RETALIATION";
+            case MAW -> "MAW_ORDER";
             default -> "ORDER";
         };
         DirectorLog.log(level, eventId, target,
@@ -406,6 +409,10 @@ public class OrderManager {
                 DirectorLog.log(level, "RETALIATION_ARRIVED", order.target,
                         "mult=" + retMult + " dur=" + retDuration);
             }
+            case MAW -> {
+                // Delegate to MawManager — opens the Maw
+                beast.getMawManager().onMawOrderArrived(level, order.target, beast);
+            }
             default -> {}
         }
     }
@@ -430,6 +437,7 @@ public class OrderManager {
                 case SURGE -> VeinNetwork.sendSurgeTrain(level, newOrigin, order.target);
                 case BREAKOUT -> VeinNetwork.sendBreakoutTrain(level, newOrigin, order.target);
                 case RETALIATION -> VeinNetwork.sendRetaliationTrain(level, newOrigin, order.target);
+                case MAW -> VeinNetwork.sendBreakoutTrain(level, newOrigin, order.target);
                 default -> {}
             }
 
@@ -677,6 +685,12 @@ public class OrderManager {
             case RETALIATION -> {
                 int leadSeconds = OthersideConfig.SERVER.retaliationLeadSeconds.get();
                 yield leadSeconds * 20;
+            }
+            case MAW -> {
+                int maxLead = OthersideConfig.SERVER.mawTelegraphLeadMaxSeconds.get();
+                int minLead = OthersideConfig.SERVER.mawTelegraphLeadMinSeconds.get();
+                float t = Math.min(acuity / 100f, 1f);
+                yield (int)((maxLead - (maxLead - minLead) * t) * 20);
             }
             case FLINCH -> 0;
         };

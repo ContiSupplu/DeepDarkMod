@@ -28,5 +28,6 @@
     "block.otherside.echo_anchor": "Echo Anchor",
     "entity.otherside.wug": "Wug",
     "entity.otherside.warb": "Warb",
-    "entity.otherside.ward": "Ward"
+    "entity.otherside.ward": "Ward",
+    "death.attack.otherside.swallowed": "%1$s was swallowed by the world"
 }

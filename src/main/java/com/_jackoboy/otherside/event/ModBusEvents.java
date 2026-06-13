@@ -5,9 +5,12 @@ import com._jackoboy.otherside.client.OthersideDimensionEffects;
 import com._jackoboy.otherside.client.model.WarbModel;
 import com._jackoboy.otherside.client.model.WardModel;
 import com._jackoboy.otherside.client.model.WugModel;
+import com._jackoboy.otherside.client.model.MawTentacleModel;
 import com._jackoboy.otherside.client.renderer.WarbRenderer;
 import com._jackoboy.otherside.client.renderer.WardRenderer;
 import com._jackoboy.otherside.client.renderer.WugRenderer;
+import com._jackoboy.otherside.client.renderer.MawTentacleRenderer;
+import com._jackoboy.otherside.entity.MawTentacleEntity;
 import com._jackoboy.otherside.entity.WarbEntity;
 import com._jackoboy.otherside.entity.WardEntity;
 import com._jackoboy.otherside.entity.WugEntity;
@@ -37,6 +40,7 @@ public class ModBusEvents {
         event.put(ModEntityTypes.WUG.get(), WugEntity.createAttributes().build());
         event.put(ModEntityTypes.WARB.get(), WarbEntity.createAttributes().build());
         event.put(ModEntityTypes.WARD.get(), WardEntity.createAttributes().build());
+        event.put(ModEntityTypes.MAW_TENTACLE.get(), MawTentacleEntity.createAttributes().build());
     }
 
     @SubscribeEvent
@@ -44,6 +48,7 @@ public class ModBusEvents {
         event.registerEntityRenderer(ModEntityTypes.WUG.get(), WugRenderer::new);
         event.registerEntityRenderer(ModEntityTypes.WARB.get(), WarbRenderer::new);
         event.registerEntityRenderer(ModEntityTypes.WARD.get(), WardRenderer::new);
+        event.registerEntityRenderer(ModEntityTypes.MAW_TENTACLE.get(), MawTentacleRenderer::new);
     }
 
     @SubscribeEvent
@@ -51,5 +56,6 @@ public class ModBusEvents {
         event.registerLayerDefinition(WugModel.LAYER, WugModel::createBodyLayer);
         event.registerLayerDefinition(WarbModel.LAYER, WarbModel::createBodyLayer);
         event.registerLayerDefinition(WardModel.LAYER, WardModel::createBodyLayer);
+        event.registerLayerDefinition(MawTentacleModel.LAYER, MawTentacleModel::createBodyLayer);
     }
 }

@@ -85,6 +85,7 @@ public class WorldbeastState extends SavedData {
     private final OrderManager orderManager = new OrderManager();
     private final SoreManager soreManager = new SoreManager();
     private final VeinGrowth veinGrowth = new VeinGrowth();
+    private final MawManager mawManager = new MawManager();
     private boolean veinNetworkSeeded = false;
     private boolean firstSoreEver = false;
     private boolean firstSoreNearBase = false;
@@ -299,6 +300,9 @@ public class WorldbeastState extends SavedData {
 
         // ── W2: SORE MANAGER TICK (scoring runs internally on its own timer) ──
         soreManager.tick(level);
+
+        // ── W3: MAW MANAGER TICK ─────────────────────────────────────────
+        mawManager.tick(level, this);
 
         // ── W2: VEIN GROWTH TICK ────────────────────────────────────────
         // Seed initial network on first W2 load — retry until at least one breach is ready
@@ -757,6 +761,15 @@ public class WorldbeastState extends SavedData {
 
     public OrderManager getOrderManager() { return orderManager; }
     public SoreManager getSoreManager() { return soreManager; }
+    public MawManager getMawManager() { return mawManager; }
+
+    /** Force-enter SATED state (called by MawManager on seal). */
+    public void triggerSated() {
+        sated = true;
+        satedTicksRemaining = cfgSatedDurationTicks();
+        hungerWasAbove50 = false;
+        OthersideMod.LOGGER.info("Worldbeast force-entered SATED state via Maw seal ({} ticks)", satedTicksRemaining);
+    }
     public VeinGrowth getVeinGrowth() { return veinGrowth; }
 
     /** Regional boosts from SURGE/RETALIATION orders — consulted by SpreadEngine. */
@@ -843,6 +856,11 @@ public class WorldbeastState extends SavedData {
         tag.putBoolean("firstSoreEver", firstSoreEver);
         tag.putBoolean("firstSoreNearBase", firstSoreNearBase);
         tag.putBoolean("firstSeveredOrder", firstSeveredOrder);
+
+        // W3: Maw
+        CompoundTag mawTag = new CompoundTag();
+        mawManager.saveTo(mawTag);
+        tag.put("mawManager", mawTag);
 
         return tag;
     }
@@ -936,6 +954,11 @@ public class WorldbeastState extends SavedData {
         state.firstSoreEver = tag.getBoolean("firstSoreEver");
         state.firstSoreNearBase = tag.getBoolean("firstSoreNearBase");
         state.firstSeveredOrder = tag.getBoolean("firstSeveredOrder");
+
+        // W3: Maw
+        if (tag.contains("mawManager")) {
+            state.mawManager.loadFrom(tag.getCompound("mawManager"));
+        }
 
         return state;
     }

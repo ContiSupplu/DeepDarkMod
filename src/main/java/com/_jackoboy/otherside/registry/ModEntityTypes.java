@@ -4,6 +4,7 @@ import com._jackoboy.otherside.OthersideMod;
 import com._jackoboy.otherside.entity.WugEntity;
 import com._jackoboy.otherside.entity.WarbEntity;
 import com._jackoboy.otherside.entity.WardEntity;
+import com._jackoboy.otherside.entity.MawTentacleEntity;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
@@ -31,4 +32,11 @@ public class ModEntityTypes {
                     .sized(0.7F, 1.4F)
                     .clientTrackingRange(10)
                     .build("otherside:ward"));
+
+    public static final DeferredHolder<EntityType<?>, EntityType<MawTentacleEntity>> MAW_TENTACLE =
+            ENTITY_TYPES.register("maw_tentacle", () -> EntityType.Builder.of(MawTentacleEntity::new, MobCategory.MISC)
+                    .sized(1.4F, 7.5F)
+                    .clientTrackingRange(16)
+                    .fireImmune()
+                    .build("otherside:maw_tentacle"));
 }

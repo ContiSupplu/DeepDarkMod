@@ -159,7 +159,8 @@ public class ModEventHandlers {
                 bz[i] = surface.getZ();
             }
         }
-        BeastSyncPayload payload = new BeastSyncPayload(beast.getMass(), bx, bz);
+        boolean mawActive = beast.getMawManager().isActive();
+        BeastSyncPayload payload = new BeastSyncPayload(beast.getMass(), bx, bz, mawActive);
         for (ServerPlayer player : level.getServer().getPlayerList().getPlayers()) {
             PacketDistributor.sendToPlayer(player, payload);
         }
@@ -346,6 +347,11 @@ public class ModEventHandlers {
                 pos.getX(), pos.getY(), pos.getZ(), 16, false);
         if (nearestPlayer instanceof ServerPlayer sp) {
             beast.addAttention(sp.getUUID(), 10.0f, gameTime);
+        }
+
+        // W3: Bell force-close on active Maw
+        if (beast.getMawManager().isActive()) {
+            beast.getMawManager().forceClose(level, pos, beast);
         }
     }
 

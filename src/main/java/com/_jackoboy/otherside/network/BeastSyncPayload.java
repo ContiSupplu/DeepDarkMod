@@ -9,12 +9,14 @@ import net.minecraft.resources.ResourceLocation;
 /**
  * Syncs beast state data to clients for fog/gloom rendering.
  * W1 rework: stripped phase/infection fields, added mass.
+ * W3: added mawActive flag for Maw mood fog.
  * Retains the same payload ID for backward compatibility with registered handlers.
  */
 public record BeastSyncPayload(
         float mass,
         double[] breachX,
-        double[] breachZ
+        double[] breachZ,
+        boolean mawActive
 ) implements CustomPacketPayload {
 
     public static final Type<BeastSyncPayload> TYPE = new Type<>(
@@ -30,6 +32,7 @@ public record BeastSyncPayload(
                             buf.writeDouble(payload.breachX[i]);
                             buf.writeDouble(payload.breachZ[i]);
                         }
+                        buf.writeBoolean(payload.mawActive);
                     },
                     buf -> {
                         float mass = buf.readFloat();
@@ -40,7 +43,8 @@ public record BeastSyncPayload(
                             bx[i] = buf.readDouble();
                             bz[i] = buf.readDouble();
                         }
-                        return new BeastSyncPayload(mass, bx, bz);
+                        boolean mawActive = buf.readBoolean();
+                        return new BeastSyncPayload(mass, bx, bz, mawActive);
                     }
             );
 
