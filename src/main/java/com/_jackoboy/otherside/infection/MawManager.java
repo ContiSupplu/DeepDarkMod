@@ -9,6 +9,7 @@ import com._jackoboy.otherside.registry.ModEntityTypes;
 import com._jackoboy.otherside.infection.InfectionSavedData;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.util.Mth;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -401,8 +402,8 @@ public class MawManager {
                 if (dx * dx + dz * dz > radius * radius) continue;
                 int surfaceY = level.getHeight(Heightmap.Types.WORLD_SURFACE,
                         throatPos.getX() + dx, throatPos.getZ() + dz);
-                for (int dy = 0; dy < 12; dy++) {
-                    BlockPos pos = new BlockPos(throatPos.getX() + dx, surfaceY + dy, throatPos.getZ() + dz);
+                for (int dy = 1; dy <= 12; dy++) {
+                    BlockPos pos = new BlockPos(throatPos.getX() + dx, surfaceY - dy, throatPos.getZ() + dz);
                     BlockState bs = level.getBlockState(pos);
                     if (bs.isAir() || bs.liquid()) continue;
                     if (MawTentacleEntity.isAmethystAnchored(pos, level)) continue;
@@ -561,15 +562,20 @@ public class MawManager {
             double x = throatPos.getX() + 0.5 + Math.cos(angle) * r;
             double z = throatPos.getZ() + 0.5 + Math.sin(angle) * r;
 
-            // Find surface Y at this position
+            // Find surface Y — use floor() so negative coords map to the correct block column
             int surfaceY = level.getHeight(Heightmap.Types.WORLD_SURFACE,
-                    (int) x, (int) z);
+                    Mth.floor(x), Mth.floor(z));
 
             MawTentacleEntity tentacle = ModEntityTypes.MAW_TENTACLE.get().create(level);
             if (tentacle == null) continue;
 
-            tentacle.moveTo(x, surfaceY, z,
-                    (float)(angle * 180.0 / Math.PI) + 180, 0);
+            float yaw = (float)(angle * 180.0 / Math.PI) + 180;
+            tentacle.moveTo(x, surfaceY, z, yaw, 0);
+            // Lock the BODY facing (not just yRot) — a no-AI mob never sets yBodyRot, so without this
+            // every tentacle renders at facing 0 and they all look identical.
+            tentacle.yBodyRot = yaw;
+            tentacle.yBodyRotO = yaw;
+            tentacle.setYHeadRot(yaw);
             tentacle.setMawCenter(throatPos);
             level.addFreshEntity(tentacle);
             tentacleEntityIds.add(tentacle.getId());

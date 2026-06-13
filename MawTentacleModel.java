@@ -201,7 +201,6 @@ public class MawTentacleModel<T extends MawTentacleEntity> extends HierarchicalM
 
         return LayerDefinition.create(mesh, 256, 256);
     }
-
     @Override
     public void setupAnim(T entity, float limbSwing, float limbSwingAmount, float ageInTicks, float headYaw, float headPitch) {
         this.root().getAllParts().forEach(ModelPart::resetPose);
