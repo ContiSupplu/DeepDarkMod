@@ -1,0 +1,32 @@
+HPC_WARD_SPAWN:  
+  Action: ADD
+  Type: HPC_WARD
+  Chance: 0.5
+  Priority: 1
+  Worlds: world # change the worldname! # 
+  PositionType: LAND  
+  Biomes: DEEP_DARK
+  Conditions:
+  - mobsinradius{t=HPC_WARD;a=<2;r=32} true  
+
+HPC_WARB_SPAWN:  
+  Action: ADD
+  Type: HPC_WARB
+  Chance: 0.5
+  Priority: 1
+  Worlds: world # change the worldname! #  
+  PositionType: LAND  
+  Biomes: DEEP_DARK
+  Conditions:
+  - mobsinradius{t=HPC_WARB;a=<1;r=32} true  
+
+HPC_WUG_SPAWN:  
+  Action: ADD
+  Type: HPC_WUG
+  Chance: 0.1
+  Priority: 1
+  Worlds: world # change the worldname! # 
+  PositionType: LAND  
+  Biomes: DEEP_DARK
+  Conditions:
+  - mobsinradius{t=HPC_WUG;a=<3;r=32} true  

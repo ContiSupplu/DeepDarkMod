@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "hanging=false": {
+      "model": "otherside:block/extinguished_lantern"
+    },
+    "hanging=true": {
+      "model": "otherside:block/extinguished_lantern_hanging"
+    }
+  }
+}

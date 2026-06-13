@@ -1,0 +1,11 @@
+{
+  "type": "otherside:the_otherside",
+  "generator": {
+    "type": "minecraft:noise",
+    "settings": "otherside:abyss",
+    "biome_source": {
+      "type": "minecraft:fixed",
+      "biome": "otherside:the_abyss"
+    }
+  }
+}

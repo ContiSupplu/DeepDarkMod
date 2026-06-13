@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "render_type": "minecraft:translucent",
+  "textures": {
+    "all": "otherside:block/echo_fluid_still"
+  }
+}

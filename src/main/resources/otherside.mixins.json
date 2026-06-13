@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "package": "com._jackoboy.otherside.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "MixinBiomeColors",
+    "MixinLevelRendererRain"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

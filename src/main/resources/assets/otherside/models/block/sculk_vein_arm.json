@@ -1,0 +1,13 @@
+{ "render_type": "minecraft:cutout",
+  "textures": {"v": "otherside:block/sculk_vein_cord", "particle": "otherside:block/sculk_vein_cord"},
+  "elements": [{
+    "from": [5, 0, 0], "to": [11, 3, 5],
+    "faces": {
+      "up":    {"uv": [5, 0, 11, 5],  "texture": "#v"},
+      "down":  {"uv": [5, 11, 11, 16],"texture": "#v"},
+      "north": {"uv": [5, 0, 11, 3],  "texture": "#v"},
+      "east":  {"uv": [4, 0, 9, 3],   "texture": "#v"},
+      "west":  {"uv": [7, 0, 12, 3],  "texture": "#v"}
+    }
+  }]
+}

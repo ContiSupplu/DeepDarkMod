@@ -1,0 +1,43 @@
+# ── Build outputs ────────────────────────────────────────────
+build/
+out/
+bin/
+*.class
+*.jar
+*.war
+*.ear
+
+# ── Gradle ───────────────────────────────────────────────────
+.gradle/
+gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+
+# ── IDE ──────────────────────────────────────────────────────
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.project
+.classpath
+.factorypath
+*.launch
+.metadata/
+
+# ── NeoForge / Minecraft runtime ─────────────────────────────
+run/
+runs/
+logs/
+crash-reports/
+*.log
+
+# ── OS junk ──────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*~
+
+# ── Local config overrides ───────────────────────────────────
+local.properties

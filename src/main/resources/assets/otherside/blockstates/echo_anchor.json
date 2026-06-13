@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "charged=true": {
+      "model": "otherside:block/echo_anchor_charged"
+    },
+    "charged=false": {
+      "model": "otherside:block/echo_anchor_spent"
+    }
+  }
+}

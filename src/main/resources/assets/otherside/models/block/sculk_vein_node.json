@@ -1,0 +1,14 @@
+{ "render_type": "minecraft:cutout",
+  "textures": {"v": "otherside:block/sculk_vein_node", "particle": "otherside:block/sculk_vein_node"},
+  "elements": [{
+    "from": [4, 0, 4], "to": [12, 3, 12],
+    "faces": {
+      "up":   {"uv": [4, 4, 12, 12], "texture": "#v"},
+      "down": {"uv": [4, 4, 12, 12], "texture": "#v"},
+      "north":{"uv": [4, 6, 12, 9],  "texture": "#v"},
+      "south":{"uv": [4, 6, 12, 9],  "texture": "#v"},
+      "east": {"uv": [4, 6, 12, 9],  "texture": "#v"},
+      "west": {"uv": [4, 6, 12, 9],  "texture": "#v"}
+    }
+  }]
+}

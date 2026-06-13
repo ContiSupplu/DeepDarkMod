@@ -1,0 +1,14 @@
+{
+    "parent": "otherside:root",
+    "display": {
+        "icon": { "id": "otherside:warden_heartcatalyst" },
+        "title": { "text": "Gatecrasher" },
+        "description": { "text": "Slay the Guardian of the portal" },
+        "frame": "challenge",
+        "show_toast": true,
+        "announce_to_chat": true
+    },
+    "criteria": {
+        "impossible": { "trigger": "minecraft:impossible" }
+    }
+}

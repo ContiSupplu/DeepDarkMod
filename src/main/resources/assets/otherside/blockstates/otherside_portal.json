@@ -1,0 +1,6 @@
+{
+  "variants": {
+    "axis=x": { "model": "otherside:block/otherside_portal_ns" },
+    "axis=z": { "model": "otherside:block/otherside_portal_ew", "y": 90 }
+  }
+}

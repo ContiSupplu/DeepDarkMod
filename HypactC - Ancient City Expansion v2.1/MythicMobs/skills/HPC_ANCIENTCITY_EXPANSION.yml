@@ -1,0 +1,67 @@
+ACEB_ATTACK:
+  Cooldown: 3
+  Conditions:
+  - offGCD true
+  - targetWithin{d=4} true
+  Skills:
+  - setgcd{t=30}
+  - setspeed{s=1.5} @self 
+  - state{s=ATTACK} @self 
+  - sound{s=entity.phantom.bite;p=0.65} @self
+  - delay 8
+  - damage{a=18} @PIR{r=3}
+  - throw{v=12;vy=2} @PIR{r=3} 
+  - setspeed{s=1.0} @self 
+  - sound{s=item.trident.hit;p=0.65} @self
+  - delay 15
+
+ACEB_SCREAM:
+  Cooldown: 32
+  Conditions:
+  - offGCD true
+  - targetWithin{d=16} true
+  - targetnotwithin{d=6} true
+  Skills:
+  - setgcd{t=30}
+  - state{s=ROAR} @self 
+  - delay 5
+  - sound{s=entity.warden.roar;p=1.25;v=3;r=64} @self
+  - setai{ai=false} @self
+  - delay 15
+  - setai{ai=true} @self
+  - setspeed{s=1.5} @self 
+  - sound{s=entity.generic.explode;v=2;r=48} @self
+  - particle{p=effect;color=#00ffd5;spread=0.5;y=1;a=16;repeat=80;repeati=2} @self
+  - particle{p=effect;color=#ffffff;spread=0.5;y=1;a=16;repeat=80;repeati=2} @self
+  - delay 160
+  - setspeed{s=1} @self 
+
+ACED_BITE:
+  Cooldown: 1
+  Conditions:
+  - offGCD true
+  - targetWithin{d=4} true
+  Skills:
+  - setgcd{t=30}
+  - state{s=ATTACK} @self 
+  - setspeed{s=0.5} @self 
+  - delay 5
+  - damage{a=12} @PIR{r=4}
+  - sound{s=entity.phantom.bite;p=2.00} @self
+  - sound{s=entity.fox.bite;p=0.50} @self
+  - sound{s=entity.phantom.bite;p=0.50} @self
+  - delay 15
+  - setspeed{s=1} @self 
+
+ACED_LEAP:
+  Cooldown: 12
+  Conditions:
+  - offGCD true
+  - targetWithin{d=16} true
+  - targetnotwithin{d=6} true
+  Skills:
+  - setgcd{t=50}
+  - state{s=LEAP} @self 
+  - delay 5
+  - sound{s=entity.breeze.shoot;p=2.00} @self
+  - leap{v=600} @target

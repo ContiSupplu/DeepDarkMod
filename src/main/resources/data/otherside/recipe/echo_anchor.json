@@ -1,0 +1,17 @@
+{
+    "type": "minecraft:crafting_shaped",
+    "pattern": [
+        " E ",
+        "EHE",
+        " C "
+    ],
+    "key": {
+        "E": { "item": "otherside:echo_shard_cluster" },
+        "H": { "item": "otherside:warden_heartcatalyst" },
+        "C": { "item": "minecraft:crying_obsidian" }
+    },
+    "result": {
+        "id": "otherside:echo_anchor",
+        "count": 1
+    }
+}

@@ -1,0 +1,19 @@
+{
+    "type": "minecraft:crafting_shaped",
+    "pattern": [
+        "AEA",
+        "ESE",
+        "ECR"
+    ],
+    "key": {
+        "A": { "item": "minecraft:amethyst_block" },
+        "E": { "item": "otherside:echo_shard_cluster" },
+        "S": { "item": "minecraft:sculk_shrieker" },
+        "R": { "item": "otherside:resonant_core" },
+        "C": { "item": "minecraft:crying_obsidian" }
+    },
+    "result": {
+        "id": "otherside:resonant_catalyst",
+        "count": 1
+    }
+}

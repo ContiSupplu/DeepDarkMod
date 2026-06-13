@@ -1,0 +1,32 @@
+{
+  "ambientocclusion": false,
+  "textures": {
+    "all": "otherside:block/echo_lantern",
+    "particle": "otherside:block/echo_lantern"
+  },
+  "elements": [
+    {
+      "from": [5, 2, 5],
+      "to": [11, 9, 11],
+      "faces": {
+        "north": { "uv": [0, 0, 6, 7], "texture": "#all" },
+        "south": { "uv": [0, 0, 6, 7], "texture": "#all" },
+        "east":  { "uv": [0, 0, 6, 7], "texture": "#all" },
+        "west":  { "uv": [0, 0, 6, 7], "texture": "#all" },
+        "up":    { "uv": [8, 0, 14, 6], "texture": "#all" },
+        "down":  { "uv": [8, 7, 14, 13], "texture": "#all" }
+      }
+    },
+    {
+      "from": [7, 9, 7],
+      "to": [9, 11, 9],
+      "faces": {
+        "north": { "uv": [0, 8, 2, 10], "texture": "#all" },
+        "south": { "uv": [0, 8, 2, 10], "texture": "#all" },
+        "east":  { "uv": [0, 8, 2, 10], "texture": "#all" },
+        "west":  { "uv": [0, 8, 2, 10], "texture": "#all" },
+        "up":    { "uv": [0, 8, 2, 10], "texture": "#all" }
+      }
+    }
+  ]
+}

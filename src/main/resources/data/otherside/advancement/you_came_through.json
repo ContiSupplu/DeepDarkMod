@@ -1,0 +1,14 @@
+{
+    "parent": "otherside:root",
+    "display": {
+        "icon": { "id": "minecraft:sculk" },
+        "title": { "text": "you came through." },
+        "description": { "text": "Enter the Otherside for the first time." },
+        "frame": "goal",
+        "show_toast": true,
+        "announce_to_chat": true
+    },
+    "criteria": {
+        "impossible": { "trigger": "minecraft:impossible" }
+    }
+}

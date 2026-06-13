@@ -1,0 +1,22 @@
+{
+  "variants": {
+    "hanging=false,lit=full": {
+      "model": "otherside:block/echo_lantern"
+    },
+    "hanging=true,lit=full": {
+      "model": "otherside:block/echo_lantern_hanging"
+    },
+    "hanging=false,lit=low": {
+      "model": "otherside:block/echo_lantern"
+    },
+    "hanging=true,lit=low": {
+      "model": "otherside:block/echo_lantern_hanging"
+    },
+    "hanging=false,lit=out": {
+      "model": "otherside:block/echo_lantern_out"
+    },
+    "hanging=true,lit=out": {
+      "model": "otherside:block/echo_lantern_out_hanging"
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "values": [
+    "minecraft:sculk",
+    "minecraft:sculk_catalyst",
+    "minecraft:sculk_sensor",
+    "minecraft:sculk_shrieker",
+    "minecraft:sculk_vein",
+    "otherside:sculk_stone",
+    "otherside:sculk_wood",
+    "otherside:sculk_membrane",
+    "otherside:echo_fluid",
+    "otherside:sculk_vein_cord"
+  ]
+}

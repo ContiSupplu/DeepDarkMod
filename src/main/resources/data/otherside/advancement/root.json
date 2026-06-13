@@ -1,0 +1,13 @@
+{
+    "display": {
+        "icon": { "id": "otherside:resonant_catalyst" },
+        "title": { "text": "The Otherside" },
+        "description": { "text": "Explore the mysteries of the Deep Dark" },
+        "background": "minecraft:textures/block/sculk.png",
+        "show_toast": false,
+        "announce_to_chat": false
+    },
+    "criteria": {
+        "tick": { "trigger": "minecraft:tick" }
+    }
+}

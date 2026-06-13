@@ -1,0 +1,17 @@
+Hey, thanks so much for purchasing my Ancient City Expansion pack 😊
+
+To get the random spawns working, just follow these quick steps:
+
+Open: MythicMobs/randomspawns/hpc_ancientcity_expansion
+Locate the Worlds option
+Replace it with the exact name of your server world Folder
+
+Edit the Chance/s the Mobs can Spawn, just try and figure out what fits best, but 0.5 should be good. 
+
+You can also edit the Condition "mobsinradius" just Change the blockradius (r=32) to (r=48) for more free space between the same mobs!
+
+That’s it, once updated, everything should work as intended!
+
+If you run into any issues or have questions, feel free to join my Discord! https://discord.gg/CUPnCZ4GJj
+
+This pack will be updated regularly over time, bringing improvements and potentially new skills!

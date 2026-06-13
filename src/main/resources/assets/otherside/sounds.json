@@ -1,0 +1,91 @@
+{
+    "phase_advance": {
+        "subtitle": "subtitles.otherside.phase_advance",
+        "sounds": [
+            { "name": "minecraft:ambient/cave/cave1", "type": "event" }
+        ]
+    },
+    "whisper_message": {
+        "subtitle": "subtitles.otherside.whisper_message",
+        "sounds": [
+            { "name": "minecraft:ambient/cave/cave3", "type": "event" }
+        ]
+    },
+    "portal_charge": {
+        "subtitle": "subtitles.otherside.portal_charge",
+        "sounds": [
+            { "name": "minecraft:block/respawn_anchor/charge1", "type": "event" }
+        ]
+    },
+    "portal_ignite": {
+        "subtitle": "subtitles.otherside.portal_ignite",
+        "sounds": [
+            { "name": "minecraft:block/respawn_anchor/deplete1", "type": "event" }
+        ]
+    },
+    "portal_ambient_loop": {
+        "subtitle": "subtitles.otherside.portal_ambient_loop",
+        "sounds": [
+            { "name": "minecraft:ambient/nether_wastes/mood1", "type": "event" }
+        ]
+    },
+    "stalker_heartbeat": {
+        "subtitle": "subtitles.otherside.stalker_heartbeat",
+        "sounds": [
+            { "name": "minecraft:entity/warden/heartbeat", "type": "event" }
+        ]
+    },
+    "lantern_flicker": {
+        "subtitle": "subtitles.otherside.lantern_flicker",
+        "sounds": [
+            { "name": "minecraft:block/candle/extinguish1", "type": "event" }
+        ]
+    },
+    "lantern_die": {
+        "subtitle": "subtitles.otherside.lantern_die",
+        "sounds": [
+            { "name": "minecraft:block/candle/extinguish1", "type": "event" }
+        ]
+    },
+    "spire_death": {
+        "subtitle": "subtitles.otherside.spire_death",
+        "sounds": [
+            { "name": "minecraft:entity/warden/death", "type": "event" }
+        ]
+    },
+    "origin_heartbeat_loop": {
+        "subtitle": "subtitles.otherside.origin_heartbeat_loop",
+        "sounds": [
+            { "name": "minecraft:entity/warden/heartbeat", "type": "event" }
+        ]
+    },
+    "cleansing_chime": {
+        "subtitle": "subtitles.otherside.cleansing_chime",
+        "sounds": [
+            { "name": "minecraft:block/amethyst/chime", "type": "event" }
+        ]
+    },
+    "portal_charge_swell": {
+        "sounds": [
+            { "name": "minecraft:block/respawn_anchor/ambient1", "type": "event", "pitch": 0.5 }
+        ]
+    },
+    "otherside_ambient_loop": {
+        "sounds": [
+            { "name": "minecraft:ambient/cave/cave1", "type": "event", "pitch": 0.6 },
+            { "name": "minecraft:ambient/cave/cave2", "type": "event", "pitch": 0.5 },
+            { "name": "minecraft:ambient/cave/cave5", "type": "event", "pitch": 0.4 }
+        ]
+    },
+    "arrival_whisper": {
+        "subtitle": "subtitles.otherside.arrival_whisper",
+        "sounds": [
+            { "name": "otherside:whisper/you_came_through" }
+        ]
+    },
+    "entry_music": {
+        "sounds": [
+            { "name": "otherside:music/entry_music", "stream": true }
+        ]
+    }
+}

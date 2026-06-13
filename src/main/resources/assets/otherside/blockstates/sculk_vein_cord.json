@@ -1,0 +1,12 @@
+{ "multipart": [
+  {"when":{"charged":"false"},"apply":{"model":"otherside:block/sculk_vein_node"}},
+  {"when":{"charged":"true"},"apply":{"model":"otherside:block/sculk_vein_node_charged"}},
+  {"when":{"charged":"false","north":"true"},"apply":{"model":"otherside:block/sculk_vein_arm"}},
+  {"when":{"charged":"false","east":"true"},"apply":{"model":"otherside:block/sculk_vein_arm","y":90}},
+  {"when":{"charged":"false","south":"true"},"apply":{"model":"otherside:block/sculk_vein_arm","y":180}},
+  {"when":{"charged":"false","west":"true"},"apply":{"model":"otherside:block/sculk_vein_arm","y":270}},
+  {"when":{"charged":"true","north":"true"},"apply":{"model":"otherside:block/sculk_vein_arm_charged"}},
+  {"when":{"charged":"true","east":"true"},"apply":{"model":"otherside:block/sculk_vein_arm_charged","y":90}},
+  {"when":{"charged":"true","south":"true"},"apply":{"model":"otherside:block/sculk_vein_arm_charged","y":180}},
+  {"when":{"charged":"true","west":"true"},"apply":{"model":"otherside:block/sculk_vein_arm_charged","y":270}}
+]}
