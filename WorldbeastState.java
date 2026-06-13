@@ -86,7 +86,6 @@ public class WorldbeastState extends SavedData {
     private final SoreManager soreManager = new SoreManager();
     private final VeinGrowth veinGrowth = new VeinGrowth();
     private final MawManager mawManager = new MawManager();
-    private final EchoSoulManager echoSoulManager = new EchoSoulManager();
     private boolean veinNetworkSeeded = false;
     private boolean firstSoreEver = false;
     private boolean firstSoreNearBase = false;
@@ -304,9 +303,6 @@ public class WorldbeastState extends SavedData {
 
         // ── W3: MAW MANAGER TICK ─────────────────────────────────────────
         mawManager.tick(level, this);
-
-        // ── W3: ECHO SOUL MANAGER TICK ────────────────────────────────
-        echoSoulManager.tick(level, this);
 
         // ── W2: VEIN GROWTH TICK ────────────────────────────────────────
         // Seed initial network on first W2 load — retry until at least one breach is ready
@@ -766,7 +762,6 @@ public class WorldbeastState extends SavedData {
     public OrderManager getOrderManager() { return orderManager; }
     public SoreManager getSoreManager() { return soreManager; }
     public MawManager getMawManager() { return mawManager; }
-    public EchoSoulManager getEchoSoulManager() { return echoSoulManager; }
 
     /** Force-enter SATED state (called by MawManager on seal). */
     public void triggerSated() {
@@ -867,11 +862,6 @@ public class WorldbeastState extends SavedData {
         mawManager.saveTo(mawTag);
         tag.put("mawManager", mawTag);
 
-        // W3: Echo Souls
-        CompoundTag echoTag = new CompoundTag();
-        echoSoulManager.saveTo(echoTag);
-        tag.put("echoSoulManager", echoTag);
-
         return tag;
     }
 
@@ -968,10 +958,6 @@ public class WorldbeastState extends SavedData {
         // W3: Maw
         if (tag.contains("mawManager")) {
             state.mawManager.loadFrom(tag.getCompound("mawManager"));
-        }
-        // W3: Echo Souls
-        if (tag.contains("echoSoulManager")) {
-            state.echoSoulManager.loadFrom(tag.getCompound("echoSoulManager"));
         }
 
         return state;

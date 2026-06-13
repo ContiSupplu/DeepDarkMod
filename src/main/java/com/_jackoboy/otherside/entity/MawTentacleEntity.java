@@ -65,6 +65,7 @@ public class MawTentacleEntity extends Mob {
     private int stateTimer = 0;
     private float cumulativeDamage = 0;
     private boolean retractWhenRecoilDone = false;
+    private int emergeDelay = 0; // Ticks to wait before starting EMERGE animation (stagger)
 
     public MawTentacleEntity(EntityType<? extends Mob> type, Level level) {
         super(type, level);
@@ -291,9 +292,19 @@ public class MawTentacleEntity extends Mob {
     private int getRecoilDuration() { return 24; }    // 1.2s
 
     private void tickEmerging(ServerLevel level) {
+        // Stagger: wait emergeDelay ticks before actually starting the emerge animation
+        if (emergeDelay > 0) {
+            emergeDelay--;
+            return;
+        }
         if (stateTimer >= getEmergeDuration()) {
             setState(TentacleState.IDLE);
         }
+    }
+
+    /** Set delay (in ticks) before this tentacle begins its EMERGE animation. */
+    public void setEmergeDelay(int ticks) {
+        this.emergeDelay = ticks;
     }
 
     private void tickIdle(ServerLevel level) {

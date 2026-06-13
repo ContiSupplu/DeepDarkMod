@@ -5,6 +5,7 @@ import com._jackoboy.otherside.entity.WugEntity;
 import com._jackoboy.otherside.entity.WarbEntity;
 import com._jackoboy.otherside.entity.WardEntity;
 import com._jackoboy.otherside.entity.MawTentacleEntity;
+import com._jackoboy.otherside.entity.EchoSoulEntity;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
@@ -39,4 +40,10 @@ public class ModEntityTypes {
                     .clientTrackingRange(16)
                     .fireImmune()
                     .build("otherside:maw_tentacle"));
+
+    public static final DeferredHolder<EntityType<?>, EntityType<EchoSoulEntity>> ECHO_SOUL =
+            ENTITY_TYPES.register("echo_soul", () -> EntityType.Builder.of(EchoSoulEntity::new, MobCategory.MONSTER)
+                    .sized(0.6F, 1.95F)
+                    .clientTrackingRange(16)
+                    .build("otherside:echo_soul"));
 }

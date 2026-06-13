@@ -97,7 +97,13 @@ public class OthersideCommands {
                 .then(Commands.literal("sore")
                         .then(Commands.literal("spawn")
                                 .then(Commands.argument("pos", BlockPosArgument.blockPos())
-                                        .executes(ctx -> beastSoreSpawn(ctx.getSource(), BlockPosArgument.getBlockPos(ctx, "pos"))))));
+                                        .executes(ctx -> beastSoreSpawn(ctx.getSource(), BlockPosArgument.getBlockPos(ctx, "pos"))))))
+                // W3: maw command
+                .then(Commands.literal("maw")
+                        .executes(ctx -> beastMawSpawn(ctx.getSource())))
+                // W3: echo soul command
+                .then(Commands.literal("soul")
+                        .executes(ctx -> beastSoulSpawn(ctx.getSource())));
     }
 
     private static int beastStatus(CommandSourceStack source) {
@@ -208,6 +214,32 @@ public class OthersideCommands {
                     .withStyle(ChatFormatting.DARK_AQUA), true);
         } else {
             source.sendFailure(Component.literal("SoreManager not initialized"));
+        }
+        return 1;
+    }
+
+    // /otherside beast maw — instant Maw cycle at the player's feet
+    private static int beastMawSpawn(CommandSourceStack source) {
+        ServerLevel level = source.getLevel();
+        WorldbeastState beast = WorldbeastState.get(level);
+        BlockPos pos = BlockPos.containing(source.getPosition());
+        beast.getMawManager().forceOpen(level, pos, beast);
+        source.sendSuccess(() -> Component.literal("Maw force-opened at " + pos.toShortString())
+                .withStyle(ChatFormatting.DARK_RED), true);
+        return 1;
+    }
+
+    // /otherside beast soul — spawn an Echo Soul at the player's feet
+    private static int beastSoulSpawn(CommandSourceStack source) {
+        ServerLevel level = source.getLevel();
+        BlockPos pos = BlockPos.containing(source.getPosition());
+        com._jackoboy.otherside.entity.EchoSoulEntity soul =
+                com._jackoboy.otherside.registry.ModEntityTypes.ECHO_SOUL.get().create(level);
+        if (soul != null) {
+            soul.moveTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 0, 0);
+            level.addFreshEntity(soul);
+            source.sendSuccess(() -> Component.literal("Echo Soul spawned at " + pos.toShortString())
+                    .withStyle(ChatFormatting.DARK_PURPLE), true);
         }
         return 1;
     }

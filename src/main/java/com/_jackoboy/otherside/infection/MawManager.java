@@ -79,6 +79,10 @@ public class MawManager {
     // =====================================================================
 
     public void tick(ServerLevel level, WorldbeastState beast) {
+        if (!OthersideConfig.SERVER.mawEnabled.get()) {
+            if (state != MawState.INACTIVE) resetMaw(); // clean up any in-flight Maw
+            return;
+        }
         switch (state) {
             case INACTIVE -> tickInactive(level, beast);
             case TELEGRAPHING -> tickTelegraphing(level, beast);
@@ -164,6 +168,20 @@ public class MawManager {
         throatPhaseTimer = 0;
         openTick = level.getGameTime();
         OthersideMod.LOGGER.info("[MAW] Opening at {}", throatPos.toShortString());
+    }
+
+    /**
+     * Force-open a Maw cycle at the given position immediately — no eligibility, no telegraph.
+     * Used by the /otherside beast maw command for testing.
+     */
+    public void forceOpen(ServerLevel level, BlockPos pos, WorldbeastState beast) {
+        resetMaw();
+        throatPos = pos;
+        state = MawState.OPENING;
+        throatPhaseTimer = 0;
+        openTick = level.getGameTime();
+        OthersideMod.LOGGER.info("[MAW] Force-opening at {}", throatPos.toShortString());
+        DirectorLog.log(level, "MAW_FORCE_OPEN", throatPos, "command");
     }
 
     // ── OPENING: throat crack→widen + tentacle emerge ────────────────
@@ -386,9 +404,10 @@ public class MawManager {
         if (dismantleTimer % 4 != 0) return; // Every 4 ticks = 5 blocks/second max
 
         float hunger = beast.getHunger();
-        int baseR = OthersideConfig.SERVER.mawGraspBaseRadius.get();
-        int hungerR = OthersideConfig.SERVER.mawGraspHungerRadius.get();
-        int radius = (int)(baseR + hungerR * (hunger / 100.0));
+        // Use a tight crater radius (4 blocks) centred on the throat, not the full grasp radius.
+        // At 6 blocks/cycle every 4 ticks (~30/sec), a radius-4 circle (~50 blocks per layer)
+        // carves visibly deep within the 40s Maw duration.
+        int radius = 4;
         int cap = OthersideConfig.SERVER.mawDebrisCap.get();
 
         if (graspedEntityIds.size() >= cap) return;
@@ -424,7 +443,7 @@ public class MawManager {
 
         int pulled = 0;
         for (BlockPos pos : ordered) {
-            if (pulled >= 3) break; // Max 3 blocks per tick cycle
+            if (pulled >= 6) break; // Max 6 blocks per tick cycle (crater carves fast)
             if (graspedEntityIds.size() >= cap) break;
 
             BlockState blockState = level.getBlockState(pos);
@@ -562,14 +581,14 @@ public class MawManager {
             double x = throatPos.getX() + 0.5 + Math.cos(angle) * r;
             double z = throatPos.getZ() + 0.5 + Math.sin(angle) * r;
 
-            // Find surface Y — use floor() so negative coords map to the correct block column
-            int surfaceY = level.getHeight(Heightmap.Types.WORLD_SURFACE,
+            // Find surface Y — MOTION_BLOCKING = solid floor, ignoring sculk veins/plants on top
+            int surfaceY = level.getHeight(Heightmap.Types.MOTION_BLOCKING,
                     Mth.floor(x), Mth.floor(z));
 
             MawTentacleEntity tentacle = ModEntityTypes.MAW_TENTACLE.get().create(level);
             if (tentacle == null) continue;
 
-            float yaw = (float)(angle * 180.0 / Math.PI) + 180;
+            float yaw = (float)(angle * 180.0 / Math.PI);
             tentacle.moveTo(x, surfaceY, z, yaw, 0);
             // Lock the BODY facing (not just yRot) — a no-AI mob never sets yBodyRot, so without this
             // every tentacle renders at facing 0 and they all look identical.
@@ -577,6 +596,8 @@ public class MawManager {
             tentacle.yBodyRotO = yaw;
             tentacle.setYHeadRot(yaw);
             tentacle.setMawCenter(throatPos);
+            // Stagger spawn: delay each tentacle by i*4 ticks so they rise raggedly, not in lockstep
+            tentacle.setEmergeDelay(i * 4);
             level.addFreshEntity(tentacle);
             tentacleEntityIds.add(tentacle.getId());
         }

@@ -59,6 +59,7 @@ public class OthersideConfig {
         public final ModConfigSpec.IntValue trainRepeatIntervalTicks;
 
         // W3 — Maw system
+        public final ModConfigSpec.BooleanValue mawEnabled;
         public final ModConfigSpec.IntValue mawHungerGate;
         public final ModConfigSpec.IntValue mawAttentionGate;
         public final ModConfigSpec.IntValue mawCooldownTicks;
@@ -74,6 +75,25 @@ public class OthersideConfig {
         public final ModConfigSpec.IntValue mawDurationFloorTicks;
         public final ModConfigSpec.IntValue mawTentacleCount;
         public final ModConfigSpec.BooleanValue baseDismantleEnabled;
+
+        // W3 — Echo Soul system
+        public final ModConfigSpec.IntValue echoSoulHealth;
+        public final ModConfigSpec.DoubleValue echoSoulSpeed;
+        public final ModConfigSpec.IntValue echoSoulAttackDamage;
+        public final ModConfigSpec.IntValue echoSoulDetectRange;
+        public final ModConfigSpec.IntValue echoSoulLockHoldTicks;
+        public final ModConfigSpec.IntValue echoSoulHeadRotSpeed;
+        public final ModConfigSpec.IntValue echoSoulDangerAttentionThreshold;
+        public final ModConfigSpec.IntValue echoSoulDangerBurst;
+        public final ModConfigSpec.IntValue echoSoulMaxPerPlayer;
+        public final ModConfigSpec.IntValue echoSoulDangerCooldownTicks;
+        public final ModConfigSpec.IntValue echoSoulNaturalMassThreshold;
+        public final ModConfigSpec.IntValue echoSoulNaturalIntervalTicks;
+        public final ModConfigSpec.IntValue echoSoulNaturalMaxActive;
+        public final ModConfigSpec.IntValue echoSoulReabsorbTimeoutTicks;
+        public final ModConfigSpec.IntValue echoSoulGlobalCap;
+        public final ModConfigSpec.IntValue echoSoulLightDeterLevel;
+        public final ModConfigSpec.BooleanValue echoSoulAmethystRepel;
 
         // Director
         public final ModConfigSpec.BooleanValue directorChatFeed;
@@ -194,6 +214,8 @@ public class OthersideConfig {
                     .defineInRange("trainRepeatIntervalTicks", 600, 200, 2400);
 
             // W3 — Maw system
+            mawEnabled = builder.comment("Master switch for the Maw event. Disabled for now — see roadmap.")
+                    .define("mawEnabled", false);
             mawHungerGate = builder.comment("Min HUNGER for Maw eligibility (RESTLESS)")
                     .defineInRange("mawHungerGate", 70, 0, 100);
             mawAttentionGate = builder.comment("Min player ATTENTION for Maw target (HUNTED)")
@@ -212,10 +234,10 @@ public class OthersideConfig {
                     .defineInRange("mawDebrisCap", 40, 10, 200);
             mawEscapeDamage = builder.comment("Cumulative damage to escape a tentacle grab")
                     .defineInRange("mawEscapeDamage", 8, 1, 50);
-            mawTelegraphLeadMaxSeconds = builder.comment("Max telegraph lead time at ACUITY 0")
-                    .defineInRange("mawTelegraphLeadMaxSeconds", 120, 30, 600);
+            mawTelegraphLeadMaxSeconds = builder.comment("Max telegraph lead time at ACUITY 0 (seconds of dread before open)")
+                    .defineInRange("mawTelegraphLeadMaxSeconds", 7, 1, 60);
             mawTelegraphLeadMinSeconds = builder.comment("Min telegraph lead time at ACUITY 100")
-                    .defineInRange("mawTelegraphLeadMinSeconds", 45, 10, 300);
+                    .defineInRange("mawTelegraphLeadMinSeconds", 3, 1, 30);
             mawDurationTicks = builder.comment("Max duration of an open Maw in ticks (800 = 40s cap)")
                     .defineInRange("mawDurationTicks", 800, 200, 2400);
             mawDurationFloorTicks = builder.comment("Min duration before early-seal can trigger (300 = 15s floor)")
@@ -224,6 +246,43 @@ public class OthersideConfig {
                     .defineInRange("mawTentacleCount", 6, 4, 8);
             baseDismantleEnabled = builder.comment("Enable base dismantling during active Maw")
                     .define("baseDismantleEnabled", true);
+            builder.pop();
+
+            builder.push("echoSoul");
+            echoSoulHealth = builder.comment("Max health (a few hits)")
+                    .defineInRange("echoSoulHealth", 14, 4, 100);
+            echoSoulSpeed = builder.comment("Move speed (chase is fast)")
+                    .defineInRange("echoSoulSpeed", 0.32, 0.1, 1.0);
+            echoSoulAttackDamage = builder.comment("Per-hit damage")
+                    .defineInRange("echoSoulAttackDamage", 4, 1, 20);
+            echoSoulDetectRange = builder.comment("LOS detection range")
+                    .defineInRange("echoSoulDetectRange", 24, 8, 64);
+            echoSoulLockHoldTicks = builder.comment("Lock-hold (telegraph) duration in ticks (~1.1s = 22)")
+                    .defineInRange("echoSoulLockHoldTicks", 22, 5, 100);
+            echoSoulHeadRotSpeed = builder.comment("Head turn speed (deg) — the snap velocity")
+                    .defineInRange("echoSoulHeadRotSpeed", 80, 20, 180);
+            echoSoulDangerAttentionThreshold = builder.comment("Attention that triggers danger spawns (KNOWN = 55)")
+                    .defineInRange("echoSoulDangerAttentionThreshold", 55, 0, 100);
+            echoSoulDangerBurst = builder.comment("Souls per danger burst (scales up when HUNTED)")
+                    .defineInRange("echoSoulDangerBurst", 2, 1, 8);
+            echoSoulMaxPerPlayer = builder.comment("Concurrent danger souls per player")
+                    .defineInRange("echoSoulMaxPerPlayer", 4, 1, 16);
+            echoSoulDangerCooldownTicks = builder.comment("Between danger bursts (ticks)")
+                    .defineInRange("echoSoulDangerCooldownTicks", 400, 40, 4800);
+            echoSoulNaturalMassThreshold = builder.comment("MASS at/above which natural spawning begins")
+                    .defineInRange("echoSoulNaturalMassThreshold", 60, 0, 100);
+            echoSoulNaturalIntervalTicks = builder.comment("Base natural-spawn interval (scaled down by mass)")
+                    .defineInRange("echoSoulNaturalIntervalTicks", 1200, 100, 12000);
+            echoSoulNaturalMaxActive = builder.comment("Cap on natural (ambient) souls (scales with mass)")
+                    .defineInRange("echoSoulNaturalMaxActive", 6, 1, 32);
+            echoSoulReabsorbTimeoutTicks = builder.comment("Idle/far timeout before a soul dissipates")
+                    .defineInRange("echoSoulReabsorbTimeoutTicks", 1200, 200, 6000);
+            echoSoulGlobalCap = builder.comment("Hard cap on total souls")
+                    .defineInRange("echoSoulGlobalCap", 16, 1, 64);
+            echoSoulLightDeterLevel = builder.comment("Light level at/above which souls are deterred")
+                    .defineInRange("echoSoulLightDeterLevel", 8, 0, 15);
+            echoSoulAmethystRepel = builder.comment("Souls refuse amethyst-warded areas; placed amethyst breaks lock")
+                    .define("echoSoulAmethystRepel", true);
             builder.pop();
 
             builder.push("director");
