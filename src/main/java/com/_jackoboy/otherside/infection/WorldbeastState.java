@@ -87,6 +87,7 @@ public class WorldbeastState extends SavedData {
     private final VeinGrowth veinGrowth = new VeinGrowth();
     private final MawManager mawManager = new MawManager();
     private final EchoSoulManager echoSoulManager = new EchoSoulManager();
+    private final ListeningBloomManager listeningBloomManager = new ListeningBloomManager();
     private boolean veinNetworkSeeded = false;
     private boolean firstSoreEver = false;
     private boolean firstSoreNearBase = false;
@@ -307,6 +308,9 @@ public class WorldbeastState extends SavedData {
 
         // ── W3: ECHO SOUL MANAGER TICK ────────────────────────────────
         echoSoulManager.tick(level, this);
+
+        // ── W4: LISTENING BLOOM MANAGER TICK ──────────────────────────
+        listeningBloomManager.tick(level, this);
 
         // ── W2: VEIN GROWTH TICK ────────────────────────────────────────
         // Seed initial network on first W2 load — retry until at least one breach is ready
@@ -664,6 +668,32 @@ public class WorldbeastState extends SavedData {
 
     public Set<Long> getClaimedChunks() { return Collections.unmodifiableSet(claimedChunks); }
 
+    /**
+     * Unified domain test: claimed chunks ∪ sore footprints ∪ breach footprints.
+     * Used by Echo Soul leash to determine if a position is "the beast's ground."
+     */
+    public boolean isInBeastDomain(BlockPos pos, ServerLevel level) {
+        // Fast path: claimed chunk
+        long chunkKey = net.minecraft.world.level.ChunkPos.asLong(pos.getX() >> 4, pos.getZ() >> 4);
+        if (claimedChunks.contains(chunkKey)) return true;
+
+        // Within a sore footprint
+        int sr = OthersideConfig.SERVER.echoSoulSoreDomainRadius.get();
+        long sr2 = (long) sr * sr;
+        for (SoreManager.SoreData sore : soreManager.getSores()) {
+            if (sore.center != null && sore.center.distSqr(pos) <= sr2) return true;
+        }
+
+        // Within a breach footprint
+        int br = OthersideConfig.SERVER.echoSoulBreachDomainRadius.get();
+        long br2 = (long) br * br;
+        for (BreachData breach : InfectionSavedData.get(level).getBreaches()) {
+            if (breach.getCityOrigin().distSqr(pos) <= br2) return true;
+        }
+
+        return false;
+    }
+
     public Set<Long> getExploredChunkSet() { return Collections.unmodifiableSet(exploredChunkSet); }
 
     public Map<UUID, AttentionData> getPlayerAttention() { return Collections.unmodifiableMap(playerAttention); }
@@ -767,6 +797,7 @@ public class WorldbeastState extends SavedData {
     public SoreManager getSoreManager() { return soreManager; }
     public MawManager getMawManager() { return mawManager; }
     public EchoSoulManager getEchoSoulManager() { return echoSoulManager; }
+    public ListeningBloomManager getListeningBloomManager() { return listeningBloomManager; }
 
     /** Force-enter SATED state (called by MawManager on seal). */
     public void triggerSated() {
@@ -872,6 +903,11 @@ public class WorldbeastState extends SavedData {
         echoSoulManager.saveTo(echoTag);
         tag.put("echoSoulManager", echoTag);
 
+        // W4: Listening Blooms
+        CompoundTag bloomTag = new CompoundTag();
+        listeningBloomManager.saveTo(bloomTag);
+        tag.put("listeningBloomManager", bloomTag);
+
         return tag;
     }
 
@@ -972,6 +1008,10 @@ public class WorldbeastState extends SavedData {
         // W3: Echo Souls
         if (tag.contains("echoSoulManager")) {
             state.echoSoulManager.loadFrom(tag.getCompound("echoSoulManager"));
+        }
+        // W4: Listening Blooms
+        if (tag.contains("listeningBloomManager")) {
+            state.listeningBloomManager.loadFrom(tag.getCompound("listeningBloomManager"));
         }
 
         return state;

@@ -42,6 +42,20 @@ public class ModSoundEvents {
     public static final DeferredHolder<SoundEvent, SoundEvent> ENTRY_MUSIC =
             registerSound("entry_music");
 
+    // W4: Listening Bloom sounds
+    public static final DeferredHolder<SoundEvent, SoundEvent> BLOOM_UNFURL =
+            registerSound("entity.bloom.unfurl");
+    public static final DeferredHolder<SoundEvent, SoundEvent> BLOOM_FOLD =
+            registerSound("entity.bloom.fold");
+    public static final DeferredHolder<SoundEvent, SoundEvent> BLOOM_TWITCH =
+            registerSound("entity.bloom.twitch");
+    public static final DeferredHolder<SoundEvent, SoundEvent> BLOOM_ALERT =
+            registerSound("entity.bloom.alert");
+    public static final DeferredHolder<SoundEvent, SoundEvent> BLOOM_TREMOR =
+            registerSound("entity.bloom.tremor");
+    public static final DeferredHolder<SoundEvent, SoundEvent> BLOOM_PRESENCE =
+            registerSound("entity.bloom.presence");
+
     private static DeferredHolder<SoundEvent, SoundEvent> registerSound(String name) {
         ResourceLocation id = ResourceLocation.fromNamespaceAndPath(OthersideMod.MOD_ID, name);
         return SOUND_EVENTS.register(name, () -> SoundEvent.createVariableRangeEvent(id));

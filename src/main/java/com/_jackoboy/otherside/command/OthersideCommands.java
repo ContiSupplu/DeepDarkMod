@@ -103,7 +103,10 @@ public class OthersideCommands {
                         .executes(ctx -> beastMawSpawn(ctx.getSource())))
                 // W3: echo soul command
                 .then(Commands.literal("soul")
-                        .executes(ctx -> beastSoulSpawn(ctx.getSource())));
+                        .executes(ctx -> beastSoulSpawn(ctx.getSource())))
+                // W4: listening bloom command
+                .then(Commands.literal("bloom")
+                        .executes(ctx -> beastBloomSpawn(ctx.getSource())));
     }
 
     private static int beastStatus(CommandSourceStack source) {
@@ -240,6 +243,21 @@ public class OthersideCommands {
             level.addFreshEntity(soul);
             source.sendSuccess(() -> Component.literal("Echo Soul spawned at " + pos.toShortString())
                     .withStyle(ChatFormatting.DARK_PURPLE), true);
+        }
+        return 1;
+    }
+
+    // /otherside beast bloom — spawn a Listening Bloom at the player's feet
+    private static int beastBloomSpawn(CommandSourceStack source) {
+        ServerLevel level = source.getLevel();
+        BlockPos pos = BlockPos.containing(source.getPosition());
+        com._jackoboy.otherside.entity.ListeningBloomEntity bloom =
+                com._jackoboy.otherside.registry.ModEntityTypes.LISTENING_BLOOM.get().create(level);
+        if (bloom != null) {
+            bloom.moveTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 0, 0);
+            level.addFreshEntity(bloom);
+            source.sendSuccess(() -> Component.literal("Listening Bloom spawned at " + pos.toShortString())
+                    .withStyle(ChatFormatting.DARK_GREEN), true);
         }
         return 1;
     }

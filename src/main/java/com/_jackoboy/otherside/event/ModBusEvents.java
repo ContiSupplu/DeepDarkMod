@@ -7,13 +7,16 @@ import com._jackoboy.otherside.client.model.WardModel;
 import com._jackoboy.otherside.client.model.WugModel;
 import com._jackoboy.otherside.client.model.MawTentacleModel;
 import com._jackoboy.otherside.client.model.EchoSoulModel;
+import com._jackoboy.otherside.client.model.ListeningBloomModel;
 import com._jackoboy.otherside.client.renderer.WarbRenderer;
 import com._jackoboy.otherside.client.renderer.WardRenderer;
 import com._jackoboy.otherside.client.renderer.WugRenderer;
 import com._jackoboy.otherside.client.renderer.MawTentacleRenderer;
 import com._jackoboy.otherside.client.renderer.EchoSoulRenderer;
+import com._jackoboy.otherside.client.renderer.ListeningBloomRenderer;
 import com._jackoboy.otherside.entity.MawTentacleEntity;
 import com._jackoboy.otherside.entity.EchoSoulEntity;
+import com._jackoboy.otherside.entity.ListeningBloomEntity;
 import com._jackoboy.otherside.entity.WarbEntity;
 import com._jackoboy.otherside.entity.WardEntity;
 import com._jackoboy.otherside.entity.WugEntity;
@@ -45,6 +48,7 @@ public class ModBusEvents {
         event.put(ModEntityTypes.WARD.get(), WardEntity.createAttributes().build());
         event.put(ModEntityTypes.MAW_TENTACLE.get(), MawTentacleEntity.createAttributes().build());
         event.put(ModEntityTypes.ECHO_SOUL.get(), EchoSoulEntity.createAttributes().build());
+        event.put(ModEntityTypes.LISTENING_BLOOM.get(), ListeningBloomEntity.createAttributes().build());
     }
 
     @SubscribeEvent
@@ -54,6 +58,7 @@ public class ModBusEvents {
         event.registerEntityRenderer(ModEntityTypes.WARD.get(), WardRenderer::new);
         event.registerEntityRenderer(ModEntityTypes.MAW_TENTACLE.get(), MawTentacleRenderer::new);
         event.registerEntityRenderer(ModEntityTypes.ECHO_SOUL.get(), EchoSoulRenderer::new);
+        event.registerEntityRenderer(ModEntityTypes.LISTENING_BLOOM.get(), ListeningBloomRenderer::new);
     }
 
     @SubscribeEvent
@@ -63,5 +68,6 @@ public class ModBusEvents {
         event.registerLayerDefinition(WardModel.LAYER, WardModel::createBodyLayer);
         event.registerLayerDefinition(MawTentacleModel.LAYER, MawTentacleModel::createBodyLayer);
         event.registerLayerDefinition(EchoSoulModel.LAYER, EchoSoulModel::createBodyLayer);
+        event.registerLayerDefinition(ListeningBloomModel.LAYER, ListeningBloomModel::createBodyLayer);
     }
 }

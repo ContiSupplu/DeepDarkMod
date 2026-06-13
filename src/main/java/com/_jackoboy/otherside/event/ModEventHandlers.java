@@ -11,6 +11,7 @@ import com._jackoboy.otherside.dimension.ResonanceManager;
 import com._jackoboy.otherside.director.DirectorLog;
 import com._jackoboy.otherside.infection.*;
 import com._jackoboy.otherside.infection.WorldbeastState;
+import com._jackoboy.otherside.entity.ListeningBloomEntity;
 import com._jackoboy.otherside.network.BeastSyncPayload;
 import com._jackoboy.otherside.network.BreachBorderPayload;
 import com._jackoboy.otherside.network.ModNetworking;
@@ -246,6 +247,8 @@ public class ModEventHandlers {
                 // Check if the killed entity is a drone (any mob on sculk body)
                 WorldbeastState beast = WorldbeastState.get(serverLevel);
                 beast.addAttention(killer.getUUID(), 6.0f, serverLevel.getGameTime());
+                // W4: notify nearby blooms of combat noise
+                ListeningBloomEntity.onNoiseNear(serverLevel, event.getEntity().blockPosition());
             }
         }
     }
@@ -300,6 +303,25 @@ public class ModEventHandlers {
             }
             beast.addAttention(player.getUUID(), lightAttention, gameTime);
         }
+
+        // W4: notify nearby blooms of placement noise
+        ListeningBloomEntity.onNoiseNear(level, pos);
+    }
+
+    // W4: Block break events — the most common noise
+    @SubscribeEvent
+    public static void onBlockBreak(net.neoforged.neoforge.event.level.BlockEvent.BreakEvent event) {
+        if (!(event.getPlayer() instanceof ServerPlayer player)) return;
+        if (!(event.getLevel() instanceof ServerLevel level)) return;
+
+        BlockPos pos = event.getPos();
+
+        // Small attention bump for breaking blocks
+        WorldbeastState beast = WorldbeastState.get(level);
+        beast.addAttention(player.getUUID(), 0.3f, level.getGameTime());
+
+        // Notify nearby blooms
+        ListeningBloomEntity.onNoiseNear(level, pos);
     }
 
     @SubscribeEvent
@@ -321,6 +343,10 @@ public class ModEventHandlers {
                 beast.addAttention(nearest.getUUID(), 20.0f, gameTime);
             }
         }
+
+        // W4: notify nearby blooms of explosion noise
+        BlockPos blastCenter = BlockPos.containing(event.getExplosion().center());
+        ListeningBloomEntity.onNoiseNear(level, blastCenter);
     }
 
     @SubscribeEvent

@@ -87,5 +87,40 @@
         "sounds": [
             { "name": "otherside:music/entry_music", "stream": true }
         ]
+    },
+    "entity.bloom.unfurl": {
+        "subtitle": "subtitles.otherside.bloom.unfurl",
+        "sounds": [
+            { "name": "otherside:entity/bloom/bloom_unfurl" }
+        ]
+    },
+    "entity.bloom.fold": {
+        "subtitle": "subtitles.otherside.bloom.fold",
+        "sounds": [
+            "otherside:entity/bloom/bloom_fold"
+        ]
+    },
+    "entity.bloom.twitch": {
+        "subtitle": "subtitles.otherside.bloom.twitch",
+        "sounds": [
+            "otherside:entity/bloom/bloom_twitch1",
+            "otherside:entity/bloom/bloom_twitch2"
+        ]
+    },
+    "entity.bloom.alert": {
+        "subtitle": "subtitles.otherside.bloom.alert",
+        "sounds": [
+            "otherside:entity/bloom/bloom_alert"
+        ]
+    },
+    "entity.bloom.tremor": {
+        "sounds": [
+            "otherside:entity/bloom/bloom_tremor"
+        ]
+    },
+    "entity.bloom.presence": {
+        "sounds": [
+            { "name": "otherside:entity/bloom/bloom_presence_loop", "stream": true }
+        ]
     }
 }

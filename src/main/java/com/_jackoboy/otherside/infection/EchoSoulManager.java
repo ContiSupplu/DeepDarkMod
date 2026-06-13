@@ -196,6 +196,7 @@ public class EchoSoulManager {
         soul.moveTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5,
                 random.nextFloat() * 360, 0);
         soul.setSpawnMode(mode);
+        soul.setHomeAnchor(pos);
         if (target != null) {
             soul.setInitialTarget(target);
         }

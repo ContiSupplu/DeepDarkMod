@@ -103,6 +103,21 @@ public class OthersideConfig {
         public final ModConfigSpec.DoubleValue echoSoulCascadeHealthPct;
         public final ModConfigSpec.IntValue echoSoulNoTargetDespawnTicks;
         public final ModConfigSpec.BooleanValue echoSoulLeashToClaimed;
+        public final ModConfigSpec.IntValue echoSoulLeashGiveUpTicks;
+        public final ModConfigSpec.IntValue echoSoulSoreDomainRadius;
+        public final ModConfigSpec.IntValue echoSoulBreachDomainRadius;
+
+        // Listening Bloom
+        public final ModConfigSpec.IntValue bloomSenseRadius;
+        public final ModConfigSpec.DoubleValue bloomProximityAttnPerSec;
+        public final ModConfigSpec.DoubleValue bloomNoiseAttn;
+        public final ModConfigSpec.DoubleValue bloomAlertAttn;
+        public final ModConfigSpec.DoubleValue bloomSneakFactor;
+        public final ModConfigSpec.IntValue bloomMaxPerPlayerArea;
+        public final ModConfigSpec.IntValue bloomSpawnIntervalTicks;
+        public final ModConfigSpec.BooleanValue bloomGlowEnabled;
+        public final ModConfigSpec.BooleanValue bloomAmethystMutes;
+        public final ModConfigSpec.IntValue bloomBudMaturationTicks;
 
         // Director
         public final ModConfigSpec.BooleanValue directorChatFeed;
@@ -310,6 +325,35 @@ public class OthersideConfig {
                     .defineInRange("echoSoulNoTargetDespawnTicks", 120, 20, 1200);
             echoSoulLeashToClaimed = builder.comment("Souls confined to claimed territory")
                     .define("echoSoulLeashToClaimed", true);
+            echoSoulLeashGiveUpTicks = builder.comment("How long (~2s = 40) a soul strains at the frontier before giving up")
+                    .defineInRange("echoSoulLeashGiveUpTicks", 40, 10, 200);
+            echoSoulSoreDomainRadius = builder.comment("Roam radius around a sore center (its footprint)")
+                    .defineInRange("echoSoulSoreDomainRadius", 20, 4, 64);
+            echoSoulBreachDomainRadius = builder.comment("Roam radius around a breach origin")
+                    .defineInRange("echoSoulBreachDomainRadius", 32, 8, 128);
+            builder.pop();
+
+            builder.push("bloom");
+            bloomSenseRadius = builder.comment("Detection radius for blooms")
+                    .defineInRange("bloomSenseRadius", 16, 4, 48);
+            bloomProximityAttnPerSec = builder.comment("Attention per second from a nearby player")
+                    .defineInRange("bloomProximityAttnPerSec", 0.5, 0.0, 5.0);
+            bloomNoiseAttn = builder.comment("Attention per noise event (break, place, combat)")
+                    .defineInRange("bloomNoiseAttn", 4.0, 0.0, 20.0);
+            bloomAlertAttn = builder.comment("Attention spike on alert-lock")
+                    .defineInRange("bloomAlertAttn", 12.0, 0.0, 50.0);
+            bloomSneakFactor = builder.comment("Multiplier on detection while player crouches")
+                    .defineInRange("bloomSneakFactor", 0.2, 0.0, 1.0);
+            bloomMaxPerPlayerArea = builder.comment("Max blooms within 32 blocks of any player")
+                    .defineInRange("bloomMaxPerPlayerArea", 6, 1, 24);
+            bloomSpawnIntervalTicks = builder.comment("How often the manager plants a bloom (2400=2min)")
+                    .defineInRange("bloomSpawnIntervalTicks", 2400, 200, 24000);
+            bloomGlowEnabled = builder.comment("Emissive focus glow on the bloom dish")
+                    .define("bloomGlowEnabled", true);
+            bloomAmethystMutes = builder.comment("Placed amethyst mutes/blinds a nearby bloom")
+                    .define("bloomAmethystMutes", true);
+            bloomBudMaturationTicks = builder.comment("Ticks from bud (0.4 scale) to full bloom (6000=5min)")
+                    .defineInRange("bloomBudMaturationTicks", 6000, 200, 72000);
             builder.pop();
 
             builder.push("director");

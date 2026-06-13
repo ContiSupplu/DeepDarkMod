@@ -95,6 +95,10 @@ public class EchoSoulEntity extends Monster {
     // v4 §4: no-target despawn
     private int noTargetTimer = 0;
 
+    // v4 §3: frontier leash
+    @Nullable private BlockPos homeAnchor = null;
+    private int leashStrainTimer = 0;
+
     // ── Spawn mode ───────────────────────────────────────────────────
     public enum SpawnMode { DANGER, NATURAL }
     private SpawnMode spawnMode = SpawnMode.NATURAL;
@@ -200,6 +204,8 @@ public class EchoSoulEntity extends Monster {
         if (mode == SpawnMode.DANGER) this.spawnedAware = true;
     }
     public SpawnMode getSpawnMode() { return spawnMode; }
+
+    public void setHomeAnchor(BlockPos pos) { this.homeAnchor = pos; }
 
     public void setInitialTarget(@Nullable Player player) {
         if (player != null) { this.targetUUID = player.getUUID(); this.cachedTarget = player; }
@@ -315,18 +321,17 @@ public class EchoSoulEntity extends Monster {
             }
         }
 
-        // §3: pull back if outside claimed territory
+        // §3: global pull-back if outside claimed territory
         if (currentState != SoulState.DISSIPATING && currentState != SoulState.EMERGING
-                && currentState != SoulState.DEATH_WAIL) {
-            if (!inClaimedTerritory(this.blockPosition())) {
-                // Outside claimed land — stop chasing, head back
-                if (currentState == SoulState.CHASE || currentState == SoulState.STALK || currentState == SoulState.LOCK) {
-                    cachedTarget = null;
-                    targetUUID = null;
-                    hasLockedThisTarget = false;
-                    setState(SoulState.WANDER);
-                }
+                && currentState != SoulState.DEATH_WAIL
+                && OthersideConfig.SERVER.echoSoulLeashToClaimed.get()
+                && !inClaimedTerritory(this.blockPosition())) {
+            // Outside the frontier — abandon the hunt and return home
+            if (homeAnchor != null) {
+                this.getNavigation().moveTo(homeAnchor.getX() + 0.5, homeAnchor.getY(), homeAnchor.getZ() + 0.5, 1.0);
             }
+            cachedTarget = null; targetUUID = null; hasLockedThisTarget = false;
+            return; // don't run normal state logic while returning
         }
 
         // State machine
@@ -350,6 +355,11 @@ public class EchoSoulEntity extends Monster {
     // ── State handlers ───────────────────────────────────────────────
 
     private void tickEmerging(ServerLevel level) {
+        // Emerge sound at the start
+        if (stateTimer == 1) {
+            level.playSound(null, this.blockPosition(), SoundEvents.SCULK_CATALYST_BLOOM,
+                    SoundSource.HOSTILE, 1.0F, 0.7F);
+        }
         if (stateTimer >= 130) {
             if (spawnedAware && cachedTarget != null) {
                 setState(SoulState.STALK);
@@ -422,10 +432,19 @@ public class EchoSoulEntity extends Monster {
     private void tickStalk(ServerLevel level) {
         if (cachedTarget == null) { setState(SoulState.WANDER); return; }
 
-        // §3: don't chase past the frontier
+        // §3: strain at frontier — stop and stare, then give up
         if (!inClaimedTerritory(cachedTarget.blockPosition())) {
-            cachedTarget = null; targetUUID = null; hasLockedThisTarget = false;
-            setState(SoulState.WANDER); return;
+            this.getNavigation().stop();
+            this.getLookControl().setLookAt(cachedTarget, (float) getMaxHeadYRot(), (float) getMaxHeadXRot());
+            leashStrainTimer++;
+            if (leashStrainTimer >= OthersideConfig.SERVER.echoSoulLeashGiveUpTicks.get()) {
+                leashStrainTimer = 0;
+                cachedTarget = null; targetUUID = null; hasLockedThisTarget = false;
+                setState(SoulState.WANDER);
+            }
+            return;
+        } else {
+            leashStrainTimer = 0;
         }
 
         if (isNearAmethyst(cachedTarget.blockPosition())) {
@@ -483,10 +502,19 @@ public class EchoSoulEntity extends Monster {
             setState(SoulState.WANDER); return;
         }
 
-        // §3: don't chase past the frontier
+        // §3: strain at frontier — stop and stare, then give up
         if (!inClaimedTerritory(cachedTarget.blockPosition())) {
-            cachedTarget = null; targetUUID = null; hasLockedThisTarget = false;
-            setState(SoulState.WANDER); return;
+            this.getNavigation().stop();
+            this.getLookControl().setLookAt(cachedTarget, (float) getMaxHeadYRot(), (float) getMaxHeadXRot());
+            leashStrainTimer++;
+            if (leashStrainTimer >= OthersideConfig.SERVER.echoSoulLeashGiveUpTicks.get()) {
+                leashStrainTimer = 0;
+                cachedTarget = null; targetUUID = null; hasLockedThisTarget = false;
+                setState(SoulState.WANDER);
+            }
+            return;
+        } else {
+            leashStrainTimer = 0;
         }
 
         double dist = this.distanceTo(cachedTarget);
@@ -698,6 +726,7 @@ public class EchoSoulEntity extends Monster {
         double closestDist = Double.MAX_VALUE;
         for (Player player : level.players()) {
             if (player.isSpectator() || player.isCreative()) continue;
+            if (!inClaimedTerritory(player.blockPosition())) continue; // Fix A: can't acquire past the frontier
             double dist = this.distanceTo(player);
             if (dist > range) continue;
             if (!hasLineOfSight(player)) continue;
@@ -707,12 +736,11 @@ public class EchoSoulEntity extends Monster {
         return closest;
     }
 
-    // ── §3: Frontier leash ───────────────────────────────────────────
+    // ── Frontier leash (beast domain = claimed chunks ∪ sores ∪ breaches) ──
     private boolean inClaimedTerritory(BlockPos pos) {
         if (!OthersideConfig.SERVER.echoSoulLeashToClaimed.get()) return true;
         if (!(this.level() instanceof ServerLevel level)) return true;
-        Set<Long> claimed = WorldbeastState.get(level).getClaimedChunks();
-        return claimed.contains(ChunkPos.asLong(pos.getX() >> 4, pos.getZ() >> 4));
+        return WorldbeastState.get(level).isInBeastDomain(pos, level);
     }
 
     // ── Counterplay helpers ──────────────────────────────────────────

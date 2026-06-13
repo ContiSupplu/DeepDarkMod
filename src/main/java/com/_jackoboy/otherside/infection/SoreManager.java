@@ -630,8 +630,8 @@ public class SoreManager {
     // ── Phase 6: Complete (tick 240 / 12s) ──────────────────────────────
 
     private void phaseComplete(ServerLevel level, BlockPos center, float triggerScore) {
-        // W4_HOOK: spawnBloomBuds(level, center, 2) — future wave 4 feature
-        OthersideMod.LOGGER.debug("[SORE] W4_HOOK: spawnBloomBuds({}, 2) — not yet implemented", center);
+        // W4: spawn 2 bloom buds at the sore
+        WorldbeastState.get(level).getListeningBloomManager().spawnBloomBuds(level, center, 2);
 
         WorldbeastState beast = WorldbeastState.get(level);
         InfectionSavedData infData = InfectionSavedData.get(level);
