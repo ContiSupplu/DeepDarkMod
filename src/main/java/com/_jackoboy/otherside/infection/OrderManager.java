@@ -12,7 +12,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Mob;
-import net.minecraft.world.entity.monster.warden.Warden;
+
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.phys.AABB;
 
@@ -241,7 +241,7 @@ public class OrderManager {
      * @param beast  the worldbeast state
      */
     public void issueOrder(ServerLevel level, OrderType type, BlockPos target, WorldbeastState beast) {
-        long gameTime = level.getDayTime();
+        long gameTime = level.getGameTime();
 
         // ── FLINCH: instant, always fires ──────────────────────────────
         if (type == OrderType.FLINCH) {
@@ -391,8 +391,14 @@ public class OrderManager {
                 int retDuration = OthersideConfig.SERVER.retaliationDurationTicks.get();
                 regionalBoosts.add(new RegionalBoost(order.target, 64, retMult, gameTime + retDuration));
 
-                // Attempt Sore near the scar
-                beast.getSoreManager().triggerEruption(level, order.target, beast, 100.0f);
+                // Attempt Sore near the scar — only if far enough from existing sites
+                InfectionSavedData infData = InfectionSavedData.get(level);
+                int minDist = OthersideConfig.SERVER.soreMinDistance.get();
+                if (beast.getSoreManager().isMinDistanceFromSites(order.target, infData, minDist)) {
+                    beast.getSoreManager().triggerEruption(level, order.target, beast, 100.0f);
+                } else {
+                    OthersideMod.LOGGER.debug("[ORDER] RETALIATION Sore skipped — too close to existing site at {}", order.target);
+                }
 
                 // Drone convergence
                 convergeDrones(level, order.target);
@@ -459,7 +465,7 @@ public class OrderManager {
     }
 
     private void onCordBrokenInternal(ServerLevel level, BlockPos pos, @Nullable ServerPlayer player) {
-        long gameTime = level.getDayTime();
+        long gameTime = level.getGameTime();
         int severThreshold = OthersideConfig.SERVER.severThreshold.get();
 
         for (VeinOrder order : activeOrders) {
@@ -556,7 +562,7 @@ public class OrderManager {
     /**
      * For RETALIATION arrivals: converge corrupted entities toward the scar position.
      * Finds mod drone entities (Wug, Warb, Ward) within 200 blocks.
-     * Falls back to nearest Warden if no drones found.
+     * No drones in range = no convergence (Law 1: Wardens are never errand-runners).
      */
     private void convergeDrones(ServerLevel level, BlockPos scarPos) {
         AABB searchBox = new AABB(scarPos).inflate(200);
@@ -595,34 +601,11 @@ public class OrderManager {
             }
             OthersideMod.LOGGER.debug("[ORDER] Converging {} drones to scar at {}", drones.size(), scarPos);
         } else {
-            // Fallback: find nearest Warden within 200 blocks (existing pattern from ResonanceManager)
-            Warden nearestWarden = findNearestWarden(level, scarPos, 200);
-            if (nearestWarden != null) {
-                nearestWarden.getNavigation().moveTo(
-                        scarPos.getX() + 0.5, scarPos.getY(), scarPos.getZ() + 0.5, 1.0);
-                OthersideMod.LOGGER.debug("[ORDER] Converging Warden {} to scar at {}",
-                        nearestWarden.getId(), scarPos);
-            }
+            // No mod drones in range — no convergence (Law 1: Wardens are never errand-runners)
+            OthersideMod.LOGGER.debug("[ORDER] No drones in range of scar at {} — skipping convergence", scarPos);
         }
     }
 
-    /**
-     * Find nearest Warden within radius (pattern from ResonanceManager).
-     */
-    private static Warden findNearestWarden(ServerLevel level, BlockPos center, int radius) {
-        AABB box = new AABB(center).inflate(radius);
-        List<Warden> wardens = level.getEntitiesOfClass(Warden.class, box);
-        Warden nearest = null;
-        double nearestDist = Double.MAX_VALUE;
-        for (Warden w : wardens) {
-            double dist = w.blockPosition().distSqr(center);
-            if (dist < nearestDist) {
-                nearestDist = dist;
-                nearest = w;
-            }
-        }
-        return nearest;
-    }
 
     // =====================================================================
     //  Surge Issuance Logic
@@ -636,7 +619,7 @@ public class OrderManager {
      * @param beast the worldbeast state
      */
     public void checkSurgeIssuance(ServerLevel level, WorldbeastState beast) {
-        long gameTime = level.getDayTime();
+        long gameTime = level.getGameTime();
         int cooldown = OthersideConfig.SERVER.surgeCooldownTicks.get();
 
         // Check cooldown
@@ -785,7 +768,9 @@ public class OrderManager {
 
             if (unexploredNeighbors > bestScore) {
                 bestScore = unexploredNeighbors;
-                bestTarget = new BlockPos((cp.x << 4) + 8, 64, (cp.z << 4) + 8);
+                bestTarget = new BlockPos((cp.x << 4) + 8,
+                        level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.WORLD_SURFACE, (cp.x << 4) + 8, (cp.z << 4) + 8),
+                        (cp.z << 4) + 8);
             }
         }
 

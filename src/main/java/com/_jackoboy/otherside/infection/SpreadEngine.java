@@ -166,7 +166,9 @@ public class SpreadEngine {
                             }
                             // W2: regional boost
                             for (OrderManager.RegionalBoost rb : regionalBoosts) {
-                                if (frontierPos.closerThan(rb.center(), rb.radius())) {
+                                double dx = frontierPos.getX() - rb.center().getX();
+                            double dz = frontierPos.getZ() - rb.center().getZ();
+                            if (dx * dx + dz * dz < (double) rb.radius() * rb.radius()) {
                                     score *= rb.multiplier();
                                 }
                             }
@@ -199,7 +201,9 @@ public class SpreadEngine {
                 }
                 // W2: regional boost
                 for (OrderManager.RegionalBoost rb : regionalBoosts) {
-                    if (frontierPos.closerThan(rb.center(), rb.radius())) {
+                    double dx = frontierPos.getX() - rb.center().getX();
+                    double dz = frontierPos.getZ() - rb.center().getZ();
+                    if (dx * dx + dz * dz < (double) rb.radius() * rb.radius()) {
                         score *= rb.multiplier();
                     }
                 }
@@ -343,6 +347,115 @@ public class SpreadEngine {
             // Record biome taste
             String biomeId = level.getBiome(target).unwrapKey().map(k -> k.location().toString()).orElse("");
             if (!biomeId.isEmpty()) beast.tasteBiome(biomeId);
+        }
+
+        // ── Phase 3: BONUS BUDGET for active regional boosts ─────────────
+        // Boosts grant extra conversions ON TOP of the normal budget so the
+        // front visibly accelerates in the boosted region.
+        if (!regionalBoosts.isEmpty()) {
+            // Collect un-processed in-region candidates (skip ones already converted above)
+            Set<Long> processedFrontiers = new HashSet<>();
+            for (int i = 0; i < processLimit; i++) {
+                processedFrontiers.add(scoredCandidates.get(i).packedFrontier());
+            }
+
+            for (OrderManager.RegionalBoost rb : regionalBoosts) {
+                int bonusBudget = (int)(budget * (rb.multiplier() - 1.0));
+                if (bonusBudget <= 0) continue;
+
+                // Gather in-region candidates not yet processed
+                List<ScoredCandidate> boostCandidates = new ArrayList<>();
+                for (ScoredCandidate sc : scoredCandidates) {
+                    if (processedFrontiers.contains(sc.packedFrontier())) continue;
+                    double dx = sc.frontierPos().getX() - rb.center().getX();
+                    double dz = sc.frontierPos().getZ() - rb.center().getZ();
+                    if (dx * dx + dz * dz < (double) rb.radius() * rb.radius()) {
+                        boostCandidates.add(sc);
+                    }
+                }
+                boostCandidates.sort(Comparator.comparingDouble(ScoredCandidate::score).reversed());
+
+                int bonusConverted = 0;
+                for (ScoredCandidate sc : boostCandidates) {
+                    if (bonusConverted >= bonusBudget) break;
+
+                    BlockPos target = sc.target();
+                    BlockState targetState = sc.targetState();
+                    if (!level.isLoaded(target)) continue;
+                    BlockState currentState = level.getBlockState(target);
+                    if (!currentState.equals(targetState)) continue;
+
+                    // Player-block resistance (same rules as normal)
+                    if (beast.isPlayerPlaced(target)) {
+                        if (beast.getMass() < OthersideConfig.SERVER.beastPlayerBlockResistanceMassGate.get()) continue;
+                        if (RANDOM.nextFloat() > OthersideConfig.SERVER.beastPlayerBlockResistance.get().floatValue()) continue;
+                    }
+
+                    // Riverbed check
+                    BlockState dirNeighborState = level.getBlockState(sc.frontierPos().relative(sc.dir()));
+                    if (dirNeighborState.is(Blocks.WATER)) {
+                        BlockState newState = ConversionMap.getConversion(targetState);
+                        level.setBlock(target, newState, SILENT_SET);
+                        bonusConverted++;
+                        converted++;
+                        data.incrementConversions();
+                        toAdd.add(target.asLong());
+                        float nutrition = ConversionMap.getNutrition(targetState.getBlock()) * OthersideConfig.SERVER.beastNutritionScale.get().floatValue();
+                        beast.feedNutrition(nutrition);
+                        breachData.addNoiseCharge((int)(nutrition * 5));
+                        continue;
+                    }
+
+                    // Light resistance
+                    int blockLight = level.getBrightness(LightLayer.BLOCK, target);
+                    if (blockLight >= 12) {
+                        if (RANDOM.nextDouble() < OthersideConfig.SERVER.lightResistChance.get()) continue;
+                    }
+
+                    // Tree consumption
+                    if (targetState.is(BlockTags.LOGS)) {
+                        consumeTree(level, target, data);
+                        bonusConverted++;
+                        converted++;
+                        data.incrementConversions();
+                        toAdd.add(target.asLong());
+                        float nutrition = ConversionMap.getNutrition(targetState.getBlock()) * OthersideConfig.SERVER.beastNutritionScale.get().floatValue();
+                        beast.feedNutrition(nutrition);
+                        breachData.addNoiseCharge((int)(nutrition * 5));
+                        continue;
+                    }
+
+                    // Leaves
+                    if (targetState.is(BlockTags.LEAVES)) {
+                        level.setBlock(target, Blocks.AIR.defaultBlockState(), SILENT_SET);
+                        bonusConverted++;
+                        converted++;
+                        data.incrementConversions();
+                        toAdd.add(target.asLong());
+                        float nutrition = ConversionMap.getNutrition(targetState.getBlock()) * OthersideConfig.SERVER.beastNutritionScale.get().floatValue();
+                        beast.feedNutrition(nutrition);
+                        breachData.addNoiseCharge((int)(nutrition * 5));
+                        continue;
+                    }
+
+                    // Standard conversion
+                    clearAbove(level, target);
+                    BlockState newState = ConversionMap.getConversion(targetState);
+                    level.setBlock(target, newState, SILENT_SET);
+                    bonusConverted++;
+                    converted++;
+                    data.incrementConversions();
+                    toAdd.add(target.asLong());
+                    float nutrition = ConversionMap.getNutrition(targetState.getBlock()) * OthersideConfig.SERVER.beastNutritionScale.get().floatValue();
+                    beast.feedNutrition(nutrition);
+                    breachData.addNoiseCharge((int)(nutrition * 5));
+                }
+
+                if (bonusConverted > 0) {
+                    OthersideMod.LOGGER.debug("[SPREAD] Boost at {} granted {} bonus conversions (budget={})",
+                            rb.center().toShortString(), bonusConverted, bonusBudget);
+                }
+            }
         }
 
         frontier.removeAll(toRemove);

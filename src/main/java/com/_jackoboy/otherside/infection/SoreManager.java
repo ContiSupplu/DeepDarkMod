@@ -353,7 +353,7 @@ public class SoreManager {
      * Check if a position is at least {@code minDist} blocks from all existing
      * breach sites and other sore locations.
      */
-    private boolean isMinDistanceFromSites(BlockPos pos, InfectionSavedData infData, int minDist) {
+    public boolean isMinDistanceFromSites(BlockPos pos, InfectionSavedData infData, int minDist) {
         long minDistSq = (long) minDist * minDist;
 
         // Check against all breaches
@@ -644,9 +644,8 @@ public class SoreManager {
         soreBreach.setColumnProgress(0);
         soreBreach.setColumnMaxHeight(0);
 
-        // TODO: Add budgetFraction field to BreachData (default 1.0, Sores set to 0.25).
-        // SpreadEngine should read this field to cap the spread budget for Sore breaches.
-        // soreBreach.setBudgetFraction(OthersideConfig.SERVER.soreSpreadBudgetFraction.get());
+        // Sore breaches use a reduced budget fraction
+        soreBreach.setBudgetFraction(OthersideConfig.SERVER.soreSpreadBudgetFraction.get().floatValue());
 
         // Seed initial frontier around the sore center
         for (int dx = -3; dx <= 3; dx++) {

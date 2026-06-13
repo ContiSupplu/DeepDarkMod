@@ -11,6 +11,7 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
 
@@ -231,10 +232,14 @@ public class VeinGrowth {
             BlockState supportState = level.getBlockState(supportBlock);
             if (!supportState.isFaceSturdy(level, supportBlock, Direction.UP)) continue;
 
-            // Check the surface position is air or replaceable
+            // Check the surface position is placeable
             BlockState atSurface = level.getBlockState(surfacePos);
-            if (!atSurface.isAir() && !(atSurface.getBlock() instanceof SculkVeinCordBlock)) {
-                // If it's a non-air, non-cord block, skip
+            boolean placeable = atSurface.isAir()
+                    || atSurface.is(Blocks.SCULK_VEIN)
+                    || atSurface.canBeReplaced()
+                    || atSurface.getBlock() instanceof SculkVeinCordBlock;
+            if (!placeable) {
+                // Solid non-replaceable block — skip
                 continue;
             }
 
@@ -474,9 +479,14 @@ public class VeinGrowth {
             double dist = Math.sqrt(current.distSqr(origin));
             if (dist > maxDist) continue;
 
-            // Place cord if not already one
+            // Place cord if position is placeable (air, sculk vein, replaceable plants, etc.)
             BlockState currentState = level.getBlockState(current);
-            if (currentState.isAir()) {
+            boolean canPlace = currentState.isAir()
+                    || currentState.is(Blocks.SCULK_VEIN)
+                    || currentState.canBeReplaced()
+                    || (currentState.is(net.minecraft.tags.BlockTags.REPLACEABLE) );
+
+            if (canPlace && !(currentState.getBlock() instanceof com._jackoboy.otherside.block.SculkVeinCordBlock)) {
                 // Determine connections to neighbors
                 BlockState cordState = ModBlocks.SCULK_VEIN_CORD.get().defaultBlockState();
 
