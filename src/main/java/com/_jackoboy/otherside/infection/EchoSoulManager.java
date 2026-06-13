@@ -93,7 +93,7 @@ public class EchoSoulManager {
             if (toSpawn <= 0) continue;
 
             for (int i = 0; i < toSpawn; i++) {
-                BlockPos spawnPos = findSpawnPos(level, beast, player.blockPosition());
+                BlockPos spawnPos = findSpawnPos(level, beast, player.blockPosition(), EchoSoulEntity.SpawnMode.DANGER);
                 if (spawnPos == null) continue;
 
                 EchoSoulEntity soul = spawnSoul(level, spawnPos, EchoSoulEntity.SpawnMode.DANGER, player);
@@ -128,7 +128,7 @@ public class EchoSoulManager {
         toSpawn = Math.min(toSpawn, globalCap - trackedSoulIds.size());
 
         for (int i = 0; i < toSpawn; i++) {
-            BlockPos spawnPos = findSpawnPos(level, beast, player.blockPosition());
+            BlockPos spawnPos = findSpawnPos(level, beast, player.blockPosition(), EchoSoulEntity.SpawnMode.DANGER);
             if (spawnPos == null) continue;
 
             EchoSoulEntity soul = spawnSoul(level, spawnPos, EchoSoulEntity.SpawnMode.DANGER, player);
@@ -172,7 +172,7 @@ public class EchoSoulManager {
         ServerPlayer nearestPlayer = findPlayerInClaimedTerritory(level, beast);
         if (nearestPlayer == null) return;
 
-        BlockPos spawnPos = findSpawnPos(level, beast, nearestPlayer.blockPosition());
+        BlockPos spawnPos = findSpawnPos(level, beast, nearestPlayer.blockPosition(), EchoSoulEntity.SpawnMode.NATURAL);
         if (spawnPos == null) return;
 
         EchoSoulEntity soul = spawnSoul(level, spawnPos, EchoSoulEntity.SpawnMode.NATURAL, null);
@@ -202,24 +202,36 @@ public class EchoSoulManager {
         level.addFreshEntity(soul);
         trackedSoulIds.add(soul.getId());
 
-        // Play emerge sound
+        // Play emerge sound + visible particle burst
         level.playSound(null, pos, net.minecraft.sounds.SoundEvents.SCULK_CATALYST_BLOOM,
                 net.minecraft.sounds.SoundSource.HOSTILE, 1.0F, 0.7F);
+        level.sendParticles(net.minecraft.core.particles.ParticleTypes.SCULK_SOUL,
+                pos.getX() + 0.5, pos.getY() + 1, pos.getZ() + 0.5,
+                20, 0.4, 0.8, 0.4, 0.03);
 
         return soul;
     }
 
     @Nullable
-    private BlockPos findSpawnPos(ServerLevel level, WorldbeastState beast, BlockPos nearPos) {
+    private BlockPos findSpawnPos(ServerLevel level, WorldbeastState beast, BlockPos nearPos, EchoSoulEntity.SpawnMode mode) {
         int lightDeter = OthersideConfig.SERVER.echoSoulLightDeterLevel.get();
 
-        // Try up to 16 random positions within 12-24 blocks of the player
+        // Try up to 16 random positions
         for (int attempt = 0; attempt < 16; attempt++) {
-            int dx = random.nextInt(25) - 12;
-            int dz = random.nextInt(25) - 12;
-            int dist2 = dx * dx + dz * dz;
-            // Not too close (within 8) and not too far (beyond 24)
-            if (dist2 < 64 || dist2 > 576) continue;
+            int dx, dz;
+            if (mode == EchoSoulEntity.SpawnMode.DANGER) {
+                // Danger: 6-12 blocks from player (closer, reactive threat)
+                dx = random.nextInt(13) - 6;
+                dz = random.nextInt(13) - 6;
+                int dist2 = dx * dx + dz * dz;
+                if (dist2 < 36 || dist2 > 144) continue; // 6-12 block range
+            } else {
+                // Natural: 12-24 blocks (wider, ambient)
+                dx = random.nextInt(25) - 12;
+                dz = random.nextInt(25) - 12;
+                int dist2 = dx * dx + dz * dz;
+                if (dist2 < 144 || dist2 > 576) continue;
+            }
 
             int x = nearPos.getX() + dx;
             int z = nearPos.getZ() + dz;
@@ -232,8 +244,8 @@ public class EchoSoulManager {
             int surfaceY = level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z);
             BlockPos candidate = new BlockPos(x, surfaceY, z);
 
-            // Not in bright light
-            if (level.getMaxLocalRawBrightness(candidate) >= lightDeter) continue;
+            // Not in bright block light (torches/lamps — skylight is fine)
+            if (level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, candidate) >= lightDeter) continue;
 
             // Not near amethyst
             if (EchoSoulEntity.isNearAmethyst(candidate)) continue;

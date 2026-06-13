@@ -94,6 +94,10 @@ public class OthersideConfig {
         public final ModConfigSpec.IntValue echoSoulGlobalCap;
         public final ModConfigSpec.IntValue echoSoulLightDeterLevel;
         public final ModConfigSpec.BooleanValue echoSoulAmethystRepel;
+        public final ModConfigSpec.BooleanValue echoSoulTeleportEnabled;
+        public final ModConfigSpec.IntValue echoSoulTeleportCooldownTicks;
+        public final ModConfigSpec.IntValue echoSoulTeleportRange;
+        public final ModConfigSpec.IntValue echoSoulTeleportTriggerDist;
 
         // Director
         public final ModConfigSpec.BooleanValue directorChatFeed;
@@ -256,7 +260,7 @@ public class OthersideConfig {
             echoSoulAttackDamage = builder.comment("Per-hit damage")
                     .defineInRange("echoSoulAttackDamage", 4, 1, 20);
             echoSoulDetectRange = builder.comment("LOS detection range")
-                    .defineInRange("echoSoulDetectRange", 24, 8, 64);
+                    .defineInRange("echoSoulDetectRange", 32, 8, 64);
             echoSoulLockHoldTicks = builder.comment("Lock-hold (telegraph) duration in ticks (~1.1s = 22)")
                     .defineInRange("echoSoulLockHoldTicks", 22, 5, 100);
             echoSoulHeadRotSpeed = builder.comment("Head turn speed (deg) — the snap velocity")
@@ -283,6 +287,14 @@ public class OthersideConfig {
                     .defineInRange("echoSoulLightDeterLevel", 8, 0, 15);
             echoSoulAmethystRepel = builder.comment("Souls refuse amethyst-warded areas; placed amethyst breaks lock")
                     .define("echoSoulAmethystRepel", true);
+            echoSoulTeleportEnabled = builder.comment("Enable enderman-style teleport blinks")
+                    .define("echoSoulTeleportEnabled", true);
+            echoSoulTeleportCooldownTicks = builder.comment("Ticks between teleport blinks (~3.5s)")
+                    .defineInRange("echoSoulTeleportCooldownTicks", 70, 10, 400);
+            echoSoulTeleportRange = builder.comment("Max teleport distance")
+                    .defineInRange("echoSoulTeleportRange", 16, 4, 32);
+            echoSoulTeleportTriggerDist = builder.comment("Blink to close gaps when farther than this while chasing")
+                    .defineInRange("echoSoulTeleportTriggerDist", 8, 3, 24);
             builder.pop();
 
             builder.push("director");

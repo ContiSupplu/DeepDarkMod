@@ -12,20 +12,20 @@ import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.tags.BlockTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.world.entity.ai.navigation.PathNavigation;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.block.AmethystBlock;
 import net.minecraft.world.level.block.AmethystClusterBlock;
 import net.minecraft.world.level.block.BuddingAmethystBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
@@ -34,14 +34,7 @@ import java.util.*;
 
 /**
  * Echo Soul — the beast's spawned hunter spirit.
- * <p>
- * Emerges from claimed ground, drifts, snaps its head to lock onto a player, and rushes.
- * Killable — the fightable layer of the unfightable beast (Law 2).
- * <p>
- * State machine: EMERGING → WANDER ⇄ STALK → LOCK → CHASE → ATTACK ↻
- *                any → HURT (flinch)   triggered → SCREAM   death → DISSIPATE
- * <p>
- * Non-persistent (manager-owned); no drops on death.
+ * Server-driven state machine with enderman-style teleport, dynamic head tracking, and full sounds.
  */
 public class EchoSoulEntity extends Monster {
 
@@ -74,15 +67,25 @@ public class EchoSoulEntity extends Monster {
     private int stateTimer = 0;
     @Nullable private UUID targetUUID = null;
     @Nullable private Player cachedTarget = null;
-    private SoulState lastAttack = null; // prevent same attack twice in a row
+    private SoulState lastAttack = null;
     private boolean hasScreamed = false;
-    private boolean useYearn = false; // alternate idle_float / yearn in wander
+    private boolean useYearn = false;
     private int wanderCycleCount = 0;
-    private boolean isDissipating = false; // flag to suppress default death
-    private int reabsorbTimer = 0; // ticks since last near a player
-    private boolean spawnedAware = false; // danger-spawned souls start in STALK
+    private boolean isDissipating = false;
+    private int reabsorbTimer = 0;
+    private boolean spawnedAware = false;
 
-    // ── Spawn mode (set by manager before addFreshEntity) ────────────
+    // §6: anti-thrash
+    private boolean hasLockedThisTarget = false; // only LOCK the first acquisition
+    private int losLostTimer = 0;               // grace period before losing chase
+
+    // §7: teleport
+    private int teleportCooldown = 0;
+
+    // §1: ambient sound
+    private int ambientSoundTimer = 0;
+
+    // ── Spawn mode ───────────────────────────────────────────────────
     public enum SpawnMode { DANGER, NATURAL }
     private SpawnMode spawnMode = SpawnMode.NATURAL;
 
@@ -96,28 +99,16 @@ public class EchoSoulEntity extends Monster {
                 .add(Attributes.MAX_HEALTH, 14.0)
                 .add(Attributes.MOVEMENT_SPEED, 0.32)
                 .add(Attributes.ATTACK_DAMAGE, 4.0)
-                .add(Attributes.FOLLOW_RANGE, 24.0)
+                .add(Attributes.FOLLOW_RANGE, 32.0)
                 .add(Attributes.KNOCKBACK_RESISTANCE, 0.1);
     }
 
     // ── Registration helpers ─────────────────────────────────────────
-    @Override
-    public boolean shouldBeSaved() { return false; }
-
-    @Override
-    public boolean removeWhenFarAway(double distSq) { return true; }
-
-    @Override
-    protected boolean shouldDespawnInPeaceful() { return false; }
-
-    // ── No drops ─────────────────────────────────────────────────────
-    @Override
-    protected void dropAllDeathLoot(ServerLevel level, DamageSource source) {
-        // Echo souls leave no items
-    }
-
-    @Override
-    protected boolean shouldDropLoot() { return false; }
+    @Override public boolean shouldBeSaved() { return false; }
+    @Override public boolean removeWhenFarAway(double distSq) { return true; }
+    @Override protected boolean shouldDespawnInPeaceful() { return false; }
+    @Override protected void dropAllDeathLoot(ServerLevel level, DamageSource source) {}
+    @Override protected boolean shouldDropLoot() { return false; }
 
     // ── Synced data ──────────────────────────────────────────────────
     @Override
@@ -156,10 +147,7 @@ public class EchoSoulEntity extends Monster {
     private void startAnimationForState(SoulState state) {
         switch (state) {
             case EMERGING -> spawnState.start(this.tickCount);
-            case WANDER -> {
-                if (useYearn) yearnState.start(this.tickCount);
-                else idleFloatState.start(this.tickCount);
-            }
+            case WANDER -> { if (useYearn) yearnState.start(this.tickCount); else idleFloatState.start(this.tickCount); }
             case STALK -> stalkState.start(this.tickCount);
             case LOCK -> detectLockState.start(this.tickCount);
             case CHASE -> chaseState.start(this.tickCount);
@@ -173,10 +161,7 @@ public class EchoSoulEntity extends Monster {
         }
     }
 
-    // ── Dynamic head contract (for EchoSoulModel) ────────────────────
-    /**
-     * True when the head should procedurally track the target (STALK/LOCK/CHASE/ATTACK).
-     */
+    // ── Dynamic head contract ────────────────────────────────────────
     public boolean isAwareOfTarget() {
         SoulState s = getState();
         return s == SoulState.STALK || s == SoulState.LOCK || s == SoulState.CHASE
@@ -184,56 +169,41 @@ public class EchoSoulEntity extends Monster {
                 || s == SoulState.ATTACK_LUNGE || s == SoulState.ATTACK_FLURRY;
     }
 
-    /**
-     * True during LOCK — triggers the creepy up-tilt + head-cock + twitch in the model.
-     */
-    public boolean isLocked() {
-        return getState() == SoulState.LOCK;
-    }
+    public boolean isLocked() { return getState() == SoulState.LOCK; }
+    @Override public int getMaxHeadYRot() { return 80; }
+    @Override public int getHeadRotSpeed() { return 80; }
 
-    // Head-turn SPEED (the snap velocity — not just range)
-    @Override
-    public int getMaxHeadYRot() { return 80; }
-
-    @Override
-    public int getHeadRotSpeed() { return 80; }
-
-    // ── Spawn configuration (called by manager before addFreshEntity) ──
+    // ── Spawn configuration ──────────────────────────────────────────
     public void setSpawnMode(SpawnMode mode) {
         this.spawnMode = mode;
-        if (mode == SpawnMode.DANGER) {
-            this.spawnedAware = true;
-        }
+        if (mode == SpawnMode.DANGER) this.spawnedAware = true;
     }
-
     public SpawnMode getSpawnMode() { return spawnMode; }
 
     public void setInitialTarget(@Nullable Player player) {
-        if (player != null) {
-            this.targetUUID = player.getUUID();
-            this.cachedTarget = player;
-        }
+        if (player != null) { this.targetUUID = player.getUUID(); this.cachedTarget = player; }
     }
 
     // ── Damage / death ───────────────────────────────────────────────
     @Override
     public boolean hurt(DamageSource source, float amount) {
         if (isDissipating) return false;
-
         boolean result = super.hurt(source, amount);
         if (result && !this.level().isClientSide) {
-            // Cancel attack windups on hit (the player's stagger window)
+            ServerLevel level = (ServerLevel) this.level();
+            // §1: hurt sound
+            level.playSound(null, this.blockPosition(), SoundEvents.WARDEN_HURT,
+                    SoundSource.HOSTILE, 0.8F, 1.5F);
+
             SoulState s = getState();
+            // Cancel attack windups on hit (player's stagger window)
             if (s == SoulState.ATTACK_SWIPE || s == SoulState.ATTACK_SLAM
-                    || s == SoulState.ATTACK_LUNGE || s == SoulState.ATTACK_FLURRY) {
-                setState(SoulState.HURT);
-            } else if (s != SoulState.HURT && s != SoulState.DISSIPATING && s != SoulState.EMERGING) {
+                    || s == SoulState.ATTACK_LUNGE || s == SoulState.ATTACK_FLURRY
+                    || (s != SoulState.HURT && s != SoulState.DISSIPATING && s != SoulState.EMERGING)) {
                 setState(SoulState.HURT);
             }
-
-            // Scream when badly hurt (below 30% hp) and haven't screamed yet
+            // Scream trigger when badly hurt
             if (this.getHealth() < this.getMaxHealth() * 0.3f && !hasScreamed) {
-                // Will transition to SCREAM after HURT finishes
                 hasScreamed = true;
             }
         }
@@ -245,17 +215,20 @@ public class EchoSoulEntity extends Monster {
         if (!this.level().isClientSide && !isDissipating) {
             isDissipating = true;
             setState(SoulState.DISSIPATING);
+            ServerLevel level = (ServerLevel) this.level();
+            // §1: dissipate sounds
+            level.playSound(null, this.blockPosition(), SoundEvents.SOUL_ESCAPE.value(),
+                    SoundSource.HOSTILE, 1.0F, 0.8F);
+            level.playSound(null, this.blockPosition(), SoundEvents.SCULK_CATALYST_BLOOM,
+                    SoundSource.HOSTILE, 0.6F, 0.6F);
 
-            // Log the kill
             if (source.getEntity() instanceof Player player) {
-                DirectorLog.log((ServerLevel) this.level(), "ECHO_SOUL_KILLED", this.blockPosition(),
+                DirectorLog.log(level, "ECHO_SOUL_KILLED", this.blockPosition(),
                         "by=" + player.getName().getString());
             } else {
-                DirectorLog.log((ServerLevel) this.level(), "ECHO_SOUL_KILLED", this.blockPosition(), "natural");
+                DirectorLog.log(level, "ECHO_SOUL_KILLED", this.blockPosition(), "natural");
             }
-
-            // Don't call super.die() — we hold the entity through the dissipate animation
-            this.setHealth(1); // keep alive through the anim
+            this.setHealth(1);
             this.setInvulnerable(true);
         }
     }
@@ -267,6 +240,7 @@ public class EchoSoulEntity extends Monster {
         if (!(this.level() instanceof ServerLevel level)) return;
 
         stateTimer++;
+        if (teleportCooldown > 0) teleportCooldown--;
 
         // Resolve cached target
         if (cachedTarget == null && targetUUID != null) {
@@ -275,26 +249,33 @@ public class EchoSoulEntity extends Monster {
         if (cachedTarget != null && (cachedTarget.isRemoved() || cachedTarget.isDeadOrDying() || cachedTarget.isSpectator())) {
             cachedTarget = null;
             targetUUID = null;
+            hasLockedThisTarget = false;
         }
 
-        // Track target with look control every aware tick (feeds netHeadYaw/headPitch for the model)
+        // Track target with look control every aware tick
         if (isAwareOfTarget() && cachedTarget != null) {
             this.getLookControl().setLookAt(cachedTarget, (float) getMaxHeadYRot(), (float) getMaxHeadXRot());
         }
 
-        // Reabsorption timer — souls far from all players dissipate
-        if (getState() != SoulState.DISSIPATING && getState() != SoulState.EMERGING) {
+        // §1: ambient sound (whispers while hunting)
+        ambientSoundTimer++;
+        SoulState currentState = getState();
+        if ((currentState == SoulState.WANDER || currentState == SoulState.STALK || currentState == SoulState.CHASE)
+                && ambientSoundTimer >= 80 + this.random.nextInt(40)) {
+            level.playSound(null, this.blockPosition(), SoundEvents.SOUL_ESCAPE.value(),
+                    SoundSource.HOSTILE, 0.3F, 0.6F + this.random.nextFloat() * 0.4F);
+            ambientSoundTimer = 0;
+        }
+
+        // Reabsorption timer
+        if (currentState != SoulState.DISSIPATING && currentState != SoulState.EMERGING) {
             boolean nearPlayer = false;
             for (Player p : level.players()) {
-                if (p.distanceToSqr(this) < 48 * 48) {
-                    nearPlayer = true;
-                    break;
-                }
+                if (p.distanceToSqr(this) < 48 * 48) { nearPlayer = true; break; }
             }
             if (!nearPlayer) {
                 reabsorbTimer++;
-                int timeout = OthersideConfig.SERVER.echoSoulReabsorbTimeoutTicks.get();
-                if (reabsorbTimer >= timeout) {
+                if (reabsorbTimer >= OthersideConfig.SERVER.echoSoulReabsorbTimeoutTicks.get()) {
                     startDissipate("reabsorb_timeout");
                     return;
                 }
@@ -304,16 +285,16 @@ public class EchoSoulEntity extends Monster {
         }
 
         // State machine
-        switch (getState()) {
+        switch (currentState) {
             case EMERGING -> tickEmerging(level);
             case WANDER -> tickWander(level);
             case STALK -> tickStalk(level);
             case LOCK -> tickLock(level);
             case CHASE -> tickChase(level);
-            case ATTACK_SWIPE -> tickAttack(level, 16); // 0.8s
-            case ATTACK_SLAM -> tickAttack(level, 20);  // 1.0s
-            case ATTACK_LUNGE -> tickAttack(level, 14);  // 0.72s
-            case ATTACK_FLURRY -> tickAttack(level, 26); // 1.3s
+            case ATTACK_SWIPE -> tickAttack(level, 16);
+            case ATTACK_SLAM -> tickAttack(level, 20);
+            case ATTACK_LUNGE -> tickAttack(level, 14);
+            case ATTACK_FLURRY -> tickAttack(level, 26);
             case SCREAM -> tickScream(level);
             case HURT -> tickHurt(level);
             case DISSIPATING -> tickDissipate(level);
@@ -323,8 +304,7 @@ public class EchoSoulEntity extends Monster {
     // ── State handlers ───────────────────────────────────────────────
 
     private void tickEmerging(ServerLevel level) {
-        // SPAWN_EMERGE = 6.5s = 130 ticks
-        if (stateTimer >= 130) {
+        if (stateTimer >= 130) { // SPAWN_EMERGE = 6.5s
             if (spawnedAware && cachedTarget != null) {
                 setState(SoulState.STALK);
             } else {
@@ -334,27 +314,40 @@ public class EchoSoulEntity extends Monster {
     }
 
     private void tickWander(ServerLevel level) {
-        // Drift slowly — no pathfinding target, gentle float
-        // Detection check every 10 ticks
-        if (stateTimer % 10 == 0) {
+        // §2: detect every 5 ticks (not 10)
+        if (stateTimer % 5 == 0) {
             Player detected = detectPlayer(level);
             if (detected != null) {
                 targetUUID = detected.getUUID();
                 cachedTarget = detected;
+                hasLockedThisTarget = false;
                 setState(SoulState.STALK);
                 return;
             }
         }
 
-        // Alternate idle_float / yearn every cycle (4s / 6s)
+        // Alternate idle_float / yearn
         int cycleDuration = useYearn ? 120 : 80;
         if (stateTimer >= cycleDuration) {
             useYearn = !useYearn;
             wanderCycleCount++;
-            setState(SoulState.WANDER); // restart with new anim
+            setState(SoulState.WANDER);
 
-            // Gentle random drift
-            if (wanderCycleCount % 2 == 0) {
+            // §2: bias drift toward nearby players in claimed territory
+            Player nearestPlayer = null;
+            double nearestDist = 48 * 48;
+            for (Player p : level.players()) {
+                if (p.isSpectator() || p.isCreative()) continue;
+                double d = p.distanceToSqr(this);
+                if (d < nearestDist) { nearestDist = d; nearestPlayer = p; }
+            }
+
+            if (nearestPlayer != null && wanderCycleCount % 2 == 0) {
+                // Drift toward the player (biased, not direct)
+                double dx = (nearestPlayer.getX() - this.getX()) * 0.3 + (this.random.nextDouble() - 0.5) * 4;
+                double dz = (nearestPlayer.getZ() - this.getZ()) * 0.3 + (this.random.nextDouble() - 0.5) * 4;
+                this.getNavigation().moveTo(this.getX() + dx, this.getY(), this.getZ() + dz, 0.5);
+            } else if (wanderCycleCount % 2 == 0) {
                 double dx = (this.random.nextDouble() - 0.5) * 8;
                 double dz = (this.random.nextDouble() - 0.5) * 8;
                 this.getNavigation().moveTo(this.getX() + dx, this.getY(), this.getZ() + dz, 0.5);
@@ -363,201 +356,208 @@ public class EchoSoulEntity extends Monster {
     }
 
     private void tickStalk(ServerLevel level) {
-        if (cachedTarget == null) {
-            setState(SoulState.WANDER);
-            return;
-        }
+        if (cachedTarget == null) { setState(SoulState.WANDER); return; }
 
-        // Check amethyst / light counterplay
         if (isNearAmethyst(cachedTarget.blockPosition())) {
-            // Amethyst repels — drop target and wander
-            cachedTarget = null;
-            targetUUID = null;
-            setState(SoulState.WANDER);
-            return;
+            cachedTarget = null; targetUUID = null; hasLockedThisTarget = false;
+            setState(SoulState.WANDER); return;
         }
 
-        // Move toward target slowly
+        // §5: detect every 5 ticks in stalk too
         this.getNavigation().moveTo(cachedTarget, 0.6);
-
-        // Check LOS + range for lock
         double dist = this.distanceTo(cachedTarget);
         int detectRange = OthersideConfig.SERVER.echoSoulDetectRange.get();
 
         if (dist > detectRange * 1.5) {
-            // Lost target — too far
-            cachedTarget = null;
-            targetUUID = null;
-            setState(SoulState.WANDER);
-            return;
+            cachedTarget = null; targetUUID = null; hasLockedThisTarget = false;
+            setState(SoulState.WANDER); return;
         }
 
         if (dist < detectRange && hasLineOfSight(cachedTarget)) {
-            // Close enough with LOS — LOCK
-            setState(SoulState.LOCK);
-            DirectorLog.log(level, "ECHO_SOUL_LOCK", this.blockPosition(),
-                    "target=" + cachedTarget.getName().getString());
-
-            // Play lock sound
-            level.playSound(null, this.blockPosition(), SoundEvents.SCULK_SHRIEKER_SHRIEK,
-                    SoundSource.HOSTILE, 0.6F, 1.8F);
+            // §6: only LOCK the first time; re-engagement goes straight to CHASE
+            if (!hasLockedThisTarget) {
+                setState(SoulState.LOCK);
+                hasLockedThisTarget = true;
+                DirectorLog.log(level, "ECHO_SOUL_LOCK", this.blockPosition(),
+                        "target=" + cachedTarget.getName().getString());
+                level.playSound(null, this.blockPosition(), SoundEvents.SCULK_SHRIEKER_SHRIEK,
+                        SoundSource.HOSTILE, 0.6F, 1.8F);
+            } else {
+                // Already locked this target before — skip to chase
+                // §1: chase start sound
+                level.playSound(null, this.blockPosition(), SoundEvents.SOUL_ESCAPE.value(),
+                        SoundSource.HOSTILE, 0.8F, 1.4F);
+                setState(SoulState.CHASE);
+            }
         }
     }
 
     private void tickLock(ServerLevel level) {
         if (cachedTarget == null || cachedTarget.isRemoved()) {
-            setState(SoulState.WANDER);
-            return;
+            hasLockedThisTarget = false;
+            setState(SoulState.WANDER); return;
         }
-
-        // LOS broken → drop to STALK
-        if (!hasLineOfSight(cachedTarget)) {
-            setState(SoulState.STALK);
-            return;
-        }
-
-        // Amethyst breaks lock
+        if (!hasLineOfSight(cachedTarget)) { setState(SoulState.STALK); return; }
         if (isNearAmethyst(cachedTarget.blockPosition())) {
-            cachedTarget = null;
-            targetUUID = null;
-            setState(SoulState.WANDER);
-            return;
+            cachedTarget = null; targetUUID = null; hasLockedThisTarget = false;
+            setState(SoulState.WANDER); return;
         }
 
-        // Hold the lock for the configured duration (~1.1s = 22 ticks)
         int lockDuration = OthersideConfig.SERVER.echoSoulLockHoldTicks.get();
         if (stateTimer >= lockDuration) {
+            // §1: chase start sound on transition
+            level.playSound(null, this.blockPosition(), SoundEvents.SOUL_ESCAPE.value(),
+                    SoundSource.HOSTILE, 0.8F, 1.4F);
             setState(SoulState.CHASE);
         }
     }
 
     private void tickChase(ServerLevel level) {
         if (cachedTarget == null || cachedTarget.isRemoved()) {
-            setState(SoulState.WANDER);
-            return;
+            hasLockedThisTarget = false;
+            setState(SoulState.WANDER); return;
         }
-
-        // Chase at full speed
-        this.getNavigation().moveTo(cachedTarget, 1.0);
 
         double dist = this.distanceTo(cachedTarget);
 
-        // LOS check — lose sight → back to stalk
-        if (stateTimer % 20 == 0 && !hasLineOfSight(cachedTarget)) {
-            setState(SoulState.STALK);
-            return;
+        // §6: LOS-loss grace (40 ticks before downgrading, not instant)
+        if (!hasLineOfSight(cachedTarget)) {
+            losLostTimer++;
+            if (losLostTimer >= 40) {
+                losLostTimer = 0;
+                setState(SoulState.STALK);
+                return;
+            }
+        } else {
+            losLostTimer = 0;
         }
 
-        // Light deters — only block light (torches/lamps), not skylight
-        int lightLevel = level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, this.blockPosition());
+        // Light deters — only block light
+        int lightLevel = level.getBrightness(LightLayer.BLOCK, this.blockPosition());
         if (lightLevel >= OthersideConfig.SERVER.echoSoulLightDeterLevel.get()) {
-            // Slow down in bright areas
             this.getNavigation().moveTo(cachedTarget, 0.3);
+        } else {
+            // §4/§7: teleport when far or path stalled
+            int triggerDist = OthersideConfig.SERVER.echoSoulTeleportTriggerDist.get();
+            if ((dist > triggerDist || this.getNavigation().isDone()) && dist > 3.0) {
+                if (tryTeleportNear(level, cachedTarget)) return;
+            }
+            // Also random chance each second while chasing — unpredictability
+            if (stateTimer % 20 == 0 && this.random.nextFloat() < 0.15f && dist > 4.0) {
+                if (tryTeleportNear(level, cachedTarget)) return;
+            }
+            this.getNavigation().moveTo(cachedTarget, 1.0);
         }
 
-        // In melee range → attack
-        if (dist < 2.5) {
+        // §5: attack at dist < 3.0, lunge from 2.5-4.5
+        if (dist < 4.5 && dist > 2.5) {
+            // Lunge range — gap-close attack
+            if (lastAttack != SoulState.ATTACK_LUNGE) {
+                lastAttack = SoulState.ATTACK_LUNGE;
+                this.getNavigation().stop();
+                setState(SoulState.ATTACK_LUNGE);
+                return;
+            }
+        }
+        if (dist < 3.0) {
+            this.getNavigation().stop(); // §5: plant to strike
             pickAttack(dist);
         }
     }
 
     private void pickAttack(double dist) {
-        // Contextual attack selection — don't repeat the same one
         List<SoulState> options = new ArrayList<>();
-        options.add(SoulState.ATTACK_SWIPE); // default
-
-        if (dist > 1.5) options.add(SoulState.ATTACK_LUNGE); // gap-close
-        options.add(SoulState.ATTACK_SLAM); // heavy, telegraphed
-
-        // Flurry if target is low health (cornered/finisher)
+        options.add(SoulState.ATTACK_SWIPE);
+        options.add(SoulState.ATTACK_SLAM);
         if (cachedTarget != null && cachedTarget.getHealth() < cachedTarget.getMaxHealth() * 0.4f) {
             options.add(SoulState.ATTACK_FLURRY);
         }
-
-        // Remove last attack to prevent repeats
         if (lastAttack != null) options.remove(lastAttack);
+        if (options.isEmpty()) options.add(SoulState.ATTACK_SWIPE);
 
         SoulState chosen = options.get(this.random.nextInt(options.size()));
         lastAttack = chosen;
+
+        // §1: attack swing sound
+        ServerLevel level = (ServerLevel) this.level();
+        level.playSound(null, this.blockPosition(), SoundEvents.PLAYER_ATTACK_SWEEP,
+                SoundSource.HOSTILE, 0.7F, 0.8F + this.random.nextFloat() * 0.4F);
+
         setState(chosen);
     }
 
     private void tickAttack(ServerLevel level, int durationTicks) {
-        if (cachedTarget == null) {
-            setState(SoulState.CHASE);
-            return;
-        }
+        if (cachedTarget == null) { setState(SoulState.CHASE); return; }
 
-        // Deal damage at roughly 60% through the animation (the hit frame)
+        // §5: hit at the contact frame (60% through)
         int hitFrame = (int) (durationTicks * 0.6);
         if (stateTimer == hitFrame) {
-            if (this.distanceTo(cachedTarget) < 3.0) {
+            if (this.distanceTo(cachedTarget) < 3.5) {
                 float damage = (float) this.getAttributeValue(Attributes.ATTACK_DAMAGE);
-                // Slam does extra damage
                 if (getState() == SoulState.ATTACK_SLAM) damage *= 1.5f;
                 cachedTarget.hurt(this.damageSources().mobAttack(this), damage);
+                // §1: hit impact sound
+                level.playSound(null, cachedTarget.blockPosition(), SoundEvents.WARDEN_ATTACK_IMPACT,
+                        SoundSource.HOSTILE, 0.8F, 1.0F);
             }
         }
 
-        // Flurry hits twice
+        // Flurry second hit
         if (getState() == SoulState.ATTACK_FLURRY) {
             int secondHit = (int) (durationTicks * 0.85);
-            if (stateTimer == secondHit && this.distanceTo(cachedTarget) < 3.0) {
+            if (stateTimer == secondHit && this.distanceTo(cachedTarget) < 3.5) {
                 float damage = (float) this.getAttributeValue(Attributes.ATTACK_DAMAGE) * 0.7f;
                 cachedTarget.hurt(this.damageSources().mobAttack(this), damage);
+                level.playSound(null, cachedTarget.blockPosition(), SoundEvents.WARDEN_ATTACK_IMPACT,
+                        SoundSource.HOSTILE, 0.6F, 1.1F);
             }
         }
 
         if (stateTimer >= durationTicks) {
-            // After attack, chase again (or scream if badly hurt)
-            if (hasScreamed && this.getHealth() < this.getMaxHealth() * 0.3f) {
-                // Already screamed flag is set in hurt() — transition handled there
-            }
             setState(SoulState.CHASE);
         }
     }
 
     private void tickScream(ServerLevel level) {
-        // SCREAM_WAIL = 1.9s = 38 ticks
         if (stateTimer == 1) {
-            // Play scream sound
-            level.playSound(null, this.blockPosition(), SoundEvents.WARDEN_ROAR,
-                    SoundSource.HOSTILE, 1.5F, 1.6F);
+            // §1: scream sound
+            level.playSound(null, this.blockPosition(), SoundEvents.SCULK_SHRIEKER_SHRIEK,
+                    SoundSource.HOSTILE, 1.2F, 0.8F);
             DirectorLog.log(level, "ECHO_SOUL_SCREAM", this.blockPosition(), "");
 
-            // Alert nearby souls — they converge on our target
+            // Alert nearby souls
             if (cachedTarget != null) {
-                AABB area = this.getBoundingBox().inflate(32);
-                for (EchoSoulEntity soul : level.getEntitiesOfClass(EchoSoulEntity.class, area)) {
+                for (EchoSoulEntity soul : level.getEntitiesOfClass(EchoSoulEntity.class,
+                        this.getBoundingBox().inflate(32))) {
                     if (soul != this && soul.getState() == SoulState.WANDER) {
                         soul.setInitialTarget(cachedTarget);
+                        soul.hasLockedThisTarget = false;
                         soul.setState(SoulState.STALK);
                     }
                 }
             }
 
-            // Gentle dread pulse — short darkness effect on nearby players (2s)
+            // Gentle dread pulse (2s darkness)
             for (Player player : level.players()) {
                 if (player.distanceToSqr(this) < 16 * 16) {
-                    // Apply brief darkness effect (40 ticks = 2s)
                     player.addEffect(new net.minecraft.world.effect.MobEffectInstance(
                             net.minecraft.world.effect.MobEffects.DARKNESS, 40, 0, false, false, true));
                 }
             }
         }
-
-        if (stateTimer >= 38) {
-            setState(SoulState.CHASE);
-        }
+        if (stateTimer >= 38) { setState(SoulState.CHASE); }
     }
 
     private void tickHurt(ServerLevel level) {
-        // HURT = 0.45s = 9 ticks
-        if (stateTimer >= 9) {
-            // If badly hurt and hasn't screamed, scream
+        if (stateTimer >= 9) { // HURT = 0.45s = 9 ticks
+            // §7: blink away on hurt (escape + reposition)
+            if (cachedTarget != null) {
+                tryTeleportNear(level, cachedTarget);
+            }
+            // Scream if badly hurt
             if (this.getHealth() < this.getMaxHealth() * 0.3f && hasScreamed) {
                 setState(SoulState.SCREAM);
-                hasScreamed = false; // allow one more scream on re-injury
+                hasScreamed = false;
             } else if (cachedTarget != null) {
                 setState(SoulState.CHASE);
             } else {
@@ -567,9 +567,7 @@ public class EchoSoulEntity extends Monster {
     }
 
     private void tickDissipate(ServerLevel level) {
-        // DISSIPATE = 2.2s = 44 ticks
-        if (stateTimer >= 44) {
-            // Spawn echo dust particles
+        if (stateTimer >= 44) { // DISSIPATE = 2.2s
             for (int i = 0; i < 15; i++) {
                 level.sendParticles(ParticleTypes.SCULK_SOUL, this.getX(), this.getY() + 1, this.getZ(),
                         1, 0.3, 0.5, 0.3, 0.02);
@@ -578,63 +576,75 @@ public class EchoSoulEntity extends Monster {
         }
     }
 
+    // ── §7: TELEPORT (enderman-style blink) ──────────────────────────
+
+    /**
+     * Enderman-style blink toward a spot near the target. Returns true on success.
+     */
+    private boolean tryTeleportNear(ServerLevel level, Player target) {
+        if (!OthersideConfig.SERVER.echoSoulTeleportEnabled.get()) return false;
+        if (teleportCooldown > 0) return false;
+
+        int range = OthersideConfig.SERVER.echoSoulTeleportRange.get();
+        for (int attempt = 0; attempt < 12; attempt++) {
+            // 3-7 blocks from target, random direction (favor behind/beside)
+            double ang = this.random.nextDouble() * Math.PI * 2;
+            double r = 3 + this.random.nextDouble() * 4;
+            int tx = Mth.floor(target.getX() + Math.cos(ang) * r);
+            int tz = Mth.floor(target.getZ() + Math.sin(ang) * r);
+            int ty = level.getHeight(Heightmap.Types.MOTION_BLOCKING, tx, tz);
+            BlockPos dest = new BlockPos(tx, ty, tz);
+
+            if (dest.distToCenterSqr(target.getX(), target.getY(), target.getZ()) > range * range) continue;
+            if (!level.getBlockState(dest).getCollisionShape(level, dest).isEmpty()) continue;
+            if (isNearAmethyst(dest)) continue;
+            if (level.getBrightness(LightLayer.BLOCK, dest) >= OthersideConfig.SERVER.echoSoulLightDeterLevel.get()) continue;
+
+            // Particles + sound at BOTH ends
+            spawnBlinkFx(level, this.blockPosition());
+            this.teleportTo(tx + 0.5, ty, tz + 0.5);
+            spawnBlinkFx(level, dest);
+            level.playSound(null, dest, SoundEvents.ENDERMAN_TELEPORT, SoundSource.HOSTILE, 1.0F, 1.2F);
+
+            teleportCooldown = OthersideConfig.SERVER.echoSoulTeleportCooldownTicks.get();
+            return true;
+        }
+        return false;
+    }
+
+    private void spawnBlinkFx(ServerLevel level, BlockPos p) {
+        level.sendParticles(ParticleTypes.SCULK_SOUL,
+                p.getX() + 0.5, p.getY() + 1, p.getZ() + 0.5,
+                18, 0.3, 0.6, 0.3, 0.02);
+    }
+
     // ── Detection ────────────────────────────────────────────────────
     @Nullable
     private Player detectPlayer(ServerLevel level) {
         int range = OthersideConfig.SERVER.echoSoulDetectRange.get();
         int lightDeter = OthersideConfig.SERVER.echoSoulLightDeterLevel.get();
 
-        // Don't detect in bright block light (torches/lamps the player places)
-        if (level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, this.blockPosition()) >= lightDeter) {
+        // Only block light deters (torches/lamps), not skylight
+        if (level.getBrightness(LightLayer.BLOCK, this.blockPosition()) >= lightDeter) {
             return null;
         }
 
         Player closest = null;
         double closestDist = Double.MAX_VALUE;
-
         for (Player player : level.players()) {
             if (player.isSpectator() || player.isCreative()) continue;
             double dist = this.distanceTo(player);
             if (dist > range) continue;
             if (!hasLineOfSight(player)) continue;
-
-            // Amethyst ward — player near amethyst is not detectable
             if (isNearAmethyst(player.blockPosition())) continue;
-
-            if (dist < closestDist) {
-                closestDist = dist;
-                closest = player;
-            }
+            if (dist < closestDist) { closestDist = dist; closest = player; }
         }
         return closest;
     }
 
     // ── Counterplay helpers ──────────────────────────────────────────
-    /**
-     * Check if a position is near placed amethyst (within 3 blocks).
-     */
     public static boolean isNearAmethyst(BlockPos center) {
-        // (Stub — same pattern as MawTentacleEntity.isAmethystAnchored)
-        return false; // Will be fully implemented in Phase B/C
-    }
-
-    /**
-     * Check if any amethyst blocks are within range. Full implementation.
-     */
-    public boolean isNearAmethystFull(BlockPos center, Level level) {
-        for (int dx = -3; dx <= 3; dx++) {
-            for (int dy = -2; dy <= 2; dy++) {
-                for (int dz = -3; dz <= 3; dz++) {
-                    BlockState bs = level.getBlockState(center.offset(dx, dy, dz));
-                    if (bs.getBlock() instanceof AmethystBlock
-                            || bs.getBlock() instanceof AmethystClusterBlock
-                            || bs.getBlock() instanceof BuddingAmethystBlock) {
-                        return true;
-                    }
-                }
-            }
-        }
-        return false;
+        return false; // Stub — fully implemented when amethyst system is in
     }
 
     // ── Dissipate helper ─────────────────────────────────────────────
@@ -644,34 +654,19 @@ public class EchoSoulEntity extends Monster {
         setInvulnerable(true);
         setState(SoulState.DISSIPATING);
         if (!this.level().isClientSide) {
-            DirectorLog.log((ServerLevel) this.level(), "ECHO_SOUL_DISSIPATE", this.blockPosition(),
-                    "reason=" + reason);
+            ServerLevel level = (ServerLevel) this.level();
+            level.playSound(null, this.blockPosition(), SoundEvents.SOUL_ESCAPE.value(),
+                    SoundSource.HOSTILE, 0.8F, 0.6F);
+            DirectorLog.log(level, "ECHO_SOUL_DISSIPATE", this.blockPosition(), "reason=" + reason);
         }
     }
 
-
-
     // ── Serialization (non-persistent, minimal) ──────────────────────
-    @Override
-    public void addAdditionalSaveData(CompoundTag tag) {
-        super.addAdditionalSaveData(tag);
-        // Non-persistent — no meaningful data to save
-    }
+    @Override public void addAdditionalSaveData(CompoundTag tag) { super.addAdditionalSaveData(tag); }
+    @Override public void readAdditionalSaveData(CompoundTag tag) { super.readAdditionalSaveData(tag); }
+    @Override public void handleEntityEvent(byte id) { super.handleEntityEvent(id); }
 
+    // Suppress mob AI goals — state machine drives all behavior
     @Override
-    public void readAdditionalSaveData(CompoundTag tag) {
-        super.readAdditionalSaveData(tag);
-    }
-
-    // ── Client-side init ─────────────────────────────────────────────
-    @Override
-    public void handleEntityEvent(byte id) {
-        super.handleEntityEvent(id);
-    }
-
-    // Suppress mob AI goals — we drive everything from the state machine
-    @Override
-    protected void registerGoals() {
-        // No goals — state machine drives all behavior
-    }
+    protected void registerGoals() {}
 }
