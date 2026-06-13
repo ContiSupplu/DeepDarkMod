@@ -39,7 +39,7 @@ public class ListeningBloomModel<T extends ListeningBloomEntity> extends Hierarc
         PartDefinition root = mesh.getRoot();
         PartDefinition p_root = root.addOrReplaceChild("root",
                 CubeListBuilder.create(),
-                PartPose.offsetAndRotation(0F,24F,0F, (float)Math.PI,0F,0F));
+                PartPose.offset(0F,0F,0F));
         PartDefinition p_root_7_yaw = p_root.addOrReplaceChild("root_7_yaw",
                 CubeListBuilder.create(),
                 PartPose.offsetAndRotation(0F,-2.5F,0F, 0F,0.1256F,0F));
