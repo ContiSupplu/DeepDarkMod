@@ -150,6 +150,13 @@ public class OthersideConfig {
         public final ModConfigSpec.IntValue cleansingWaveSpeed;
         public final ModConfigSpec.BooleanValue whisperEpilogue;
 
+        // Corruption
+        public final ModConfigSpec.DoubleValue corruptionGainPerSec;
+        public final ModConfigSpec.DoubleValue corruptionSoulHit;
+        public final ModConfigSpec.DoubleValue corruptionCurePerApple;
+        public final ModConfigSpec.IntValue corruptionSlowThreshold;
+        public final ModConfigSpec.IntValue corruptionConsumedThreshold;
+
         ServerConfig(ModConfigSpec.Builder builder) {
             builder.push("infection");
             spreadCycleTicks = builder.comment("Ticks between spread cycles (20 ticks = 1 second)")
@@ -412,6 +419,19 @@ public class OthersideConfig {
                     .defineInRange("cleansingWaveSpeed", 8, 1, 100);
             whisperEpilogue = builder.comment("Keep Whisper ambience active after Cleansing for filming")
                     .define("whisperEpilogue", false);
+            builder.pop();
+
+            builder.push("corruption");
+            corruptionGainPerSec = builder.comment("Corruption gained per second while unwarded in the Echo dimension (added once per 20-tick cycle)")
+                    .defineInRange("corruptionGainPerSec", 0.4, 0.0, 10.0);
+            corruptionSoulHit = builder.comment("Corruption spike per echo soul hit on a player")
+                    .defineInRange("corruptionSoulHit", 8.0, 0.0, 50.0);
+            corruptionCurePerApple = builder.comment("Corruption reduced per golden apple (enchanted golden apple = full cleanse)")
+                    .defineInRange("corruptionCurePerApple", 30.0, 0.0, 100.0);
+            corruptionSlowThreshold = builder.comment("Corruption level at which Darkness + Slowness I + Weakness I activate")
+                    .defineInRange("corruptionSlowThreshold", 75, 0, 100);
+            corruptionConsumedThreshold = builder.comment("Corruption level at which the Consumed state activates (Slowness II + Weakness II + near-black overlay)")
+                    .defineInRange("corruptionConsumedThreshold", 100, 0, 100);
             builder.pop();
         }
     }

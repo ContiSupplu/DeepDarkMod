@@ -2,6 +2,7 @@ package com._jackoboy.otherside.command;
 
 import com._jackoboy.otherside.OthersideMod;
 import com._jackoboy.otherside.director.DirectorLog;
+import com._jackoboy.otherside.corruption.Corruption;
 import com._jackoboy.otherside.infection.*;
 import com._jackoboy.otherside.network.BeastSyncPayload;
 import com._jackoboy.otherside.portal.GuardianManager;
@@ -51,6 +52,7 @@ public class OthersideCommands {
                         .then(statusCommand())
                         .then(whisperCommand())
                         .then(portalCommand())
+                        .then(corruptionCommand())
         );
     }
 
@@ -772,5 +774,45 @@ public class OthersideCommands {
             }
         }
         return 1;
+    }
+
+    // /otherside corruption get [player] | set <player> <value>
+    private static com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> corruptionCommand() {
+        return Commands.literal("corruption")
+                .then(Commands.literal("get")
+                        .executes(ctx -> {
+                            ServerPlayer player = ctx.getSource().getPlayerOrException();
+                            float val = Corruption.get(player);
+                            ctx.getSource().sendSuccess(() -> Component.literal(
+                                    "Corruption: " + String.format("%.1f", val) + "/100"
+                            ).withStyle(ChatFormatting.DARK_AQUA), false);
+                            return 1;
+                        })
+                        .then(Commands.argument("target", EntityArgument.player())
+                                .executes(ctx -> {
+                                    ServerPlayer target = EntityArgument.getPlayer(ctx, "target");
+                                    float val = Corruption.get(target);
+                                    ctx.getSource().sendSuccess(() -> Component.literal(
+                                            target.getName().getString() + " corruption: " + String.format("%.1f", val) + "/100"
+                                    ).withStyle(ChatFormatting.DARK_AQUA), false);
+                                    return 1;
+                                })
+                        )
+                )
+                .then(Commands.literal("set")
+                        .then(Commands.argument("target", EntityArgument.player())
+                                .then(Commands.argument("value", DoubleArgumentType.doubleArg(0, 100))
+                                        .executes(ctx -> {
+                                            ServerPlayer target = EntityArgument.getPlayer(ctx, "target");
+                                            float value = (float) DoubleArgumentType.getDouble(ctx, "value");
+                                            Corruption.set(target, value);
+                                            ctx.getSource().sendSuccess(() -> Component.literal(
+                                                    "Set " + target.getName().getString() + " corruption to " + String.format("%.1f", value)
+                                            ).withStyle(ChatFormatting.DARK_AQUA), true);
+                                            return 1;
+                                        })
+                                )
+                        )
+                );
     }
 }

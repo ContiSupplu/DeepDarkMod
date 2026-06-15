@@ -17,6 +17,8 @@ import com._jackoboy.otherside.network.BreachBorderPayload;
 import com._jackoboy.otherside.network.ModNetworking;
 import com._jackoboy.otherside.portal.GuardianManager;
 import com._jackoboy.otherside.portal.IgnitionManager;
+import com._jackoboy.otherside.corruption.Corruption;
+import com._jackoboy.otherside.corruption.CorruptionManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
@@ -33,8 +35,10 @@ import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
+import net.neoforged.neoforge.event.entity.living.LivingEntityUseItemEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
+import net.minecraft.world.item.Items;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -87,6 +91,9 @@ public class ModEventHandlers {
             ArrivalScript.tick(othersideLevel);
             VeinNetwork.tickPulses(othersideLevel);
         }
+
+        // ── Corruption system (per-player, processes every 20 ticks internally) ──
+        CorruptionManager.tick(event.getServer());
 
         // Check for missing guardians periodically
         guardianCheckTimer++;
@@ -230,6 +237,21 @@ public class ModEventHandlers {
                     }
                 }
             }
+            // Sync corruption to joining player
+            Corruption.set(player, Corruption.get(player));
+        }
+    }
+
+    @SubscribeEvent
+    public static void onLivingUseItemFinish(LivingEntityUseItemEvent.Finish event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) return;
+        if (event.getItem().is(Items.ENCHANTED_GOLDEN_APPLE)) {
+            // Full cleanse
+            Corruption.set(player, 0);
+        } else if (event.getItem().is(Items.GOLDEN_APPLE)) {
+            // Partial cure
+            float cure = OthersideConfig.SERVER.corruptionCurePerApple.get().floatValue();
+            Corruption.add(player, -cure);
         }
     }
 

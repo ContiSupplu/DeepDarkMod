@@ -3,6 +3,7 @@ package com._jackoboy.otherside.entity;
 import com._jackoboy.otherside.OthersideConfig;
 import com._jackoboy.otherside.OthersideMod;
 import com._jackoboy.otherside.director.DirectorLog;
+import com._jackoboy.otherside.corruption.Corruption;
 import com._jackoboy.otherside.infection.WorldbeastState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
@@ -590,6 +591,10 @@ public class EchoSoulEntity extends Monster {
                 float damage = (float) this.getAttributeValue(Attributes.ATTACK_DAMAGE);
                 if (getState() == SoulState.ATTACK_SLAM) damage *= 1.5f;
                 cachedTarget.hurt(this.damageSources().mobAttack(this), damage);
+                // Corruption spike on echo soul hit
+                if (cachedTarget instanceof ServerPlayer sp) {
+                    Corruption.add(sp, OthersideConfig.SERVER.corruptionSoulHit.get().floatValue());
+                }
                 level.playSound(null, cachedTarget.blockPosition(), SoundEvents.WARDEN_ATTACK_IMPACT,
                         SoundSource.HOSTILE, 0.8F, 1.0F);
             }
@@ -600,6 +605,10 @@ public class EchoSoulEntity extends Monster {
             if (stateTimer == secondHit && this.distanceTo(cachedTarget) < 3.5) {
                 float damage = (float) this.getAttributeValue(Attributes.ATTACK_DAMAGE) * 0.7f;
                 cachedTarget.hurt(this.damageSources().mobAttack(this), damage);
+                // Corruption spike on echo soul flurry hit
+                if (cachedTarget instanceof ServerPlayer sp) {
+                    Corruption.add(sp, OthersideConfig.SERVER.corruptionSoulHit.get().floatValue());
+                }
                 level.playSound(null, cachedTarget.blockPosition(), SoundEvents.WARDEN_ATTACK_IMPACT,
                         SoundSource.HOSTILE, 0.6F, 1.1F);
             }

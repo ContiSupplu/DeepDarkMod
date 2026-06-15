@@ -54,5 +54,13 @@ public class ModNetworking {
                 ResonancePayload.STREAM_CODEC,
                 com._jackoboy.otherside.client.ResonanceHudOverlay::handlePayload
         );
+
+        registrar.playToClient(
+                CorruptionSyncPayload.TYPE,
+                CorruptionSyncPayload.STREAM_CODEC,
+                (payload, context) -> context.enqueueWork(() -> {
+                    com._jackoboy.otherside.client.CorruptionClientData.currentCorruption = payload.corruption();
+                })
+        );
     }
 }

@@ -7,6 +7,7 @@ import com._jackoboy.otherside.registry.ModCreativeTabs;
 import com._jackoboy.otherside.registry.ModBlockEntityTypes;
 import com._jackoboy.otherside.registry.ModDataComponents;
 import com._jackoboy.otherside.registry.ModEntityTypes;
+import com._jackoboy.otherside.registry.ModAttachments;
 import com.mojang.logging.LogUtils;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -29,6 +30,7 @@ public class OthersideMod {
         ModBlockEntityTypes.BLOCK_ENTITY_TYPES.register(modEventBus);
         ModDataComponents.DATA_COMPONENT_TYPES.register(modEventBus);
         ModEntityTypes.ENTITY_TYPES.register(modEventBus);
+        ModAttachments.ATTACHMENT_TYPES.register(modEventBus);
 
         // Register configs
         modContainer.registerConfig(ModConfig.Type.SERVER, OthersideConfig.SERVER_SPEC);
