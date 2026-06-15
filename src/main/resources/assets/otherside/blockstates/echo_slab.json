@@ -1,0 +1,13 @@
+{
+  "variants": {
+    "type=bottom": {
+      "model": "otherside:block/echo_slab"
+    },
+    "type=top": {
+      "model": "otherside:block/echo_slab_top"
+    },
+    "type=double": {
+      "model": "otherside:block/echo_planks"
+    }
+  }
+}

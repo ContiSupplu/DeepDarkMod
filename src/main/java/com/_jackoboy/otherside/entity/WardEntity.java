@@ -1,5 +1,8 @@
 package com._jackoboy.otherside.entity;
 
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.damagesource.DamageSource;
@@ -10,7 +13,7 @@ import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.*;
 import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
-import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
@@ -19,16 +22,33 @@ import net.minecraft.world.phys.Vec3;
 import javax.annotation.Nullable;
 import java.util.List;
 
-public class WardEntity extends Zombie {
+/**
+ * Ward — leaping armored predator. Bite snaps at close range, breeze-style leap at distance.
+ * 6-segmented-legged with upper/lower jaws and whiskers.
+ */
+public class WardEntity extends Monster {
+    /** 0 = idle, 1 = biting, 2 = leaping */
+    private static final EntityDataAccessor<Integer> ATTACK_STATE =
+            SynchedEntityData.defineId(WardEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> ATTACK_ANIM_TICKS =
+            SynchedEntityData.defineId(WardEntity.class, EntityDataSerializers.INT);
+
     private int biteCooldown = 0;
     private int leapCooldown = 0;
 
-    public WardEntity(EntityType<? extends Zombie> type, Level level) {
+    public WardEntity(EntityType<? extends Monster> type, Level level) {
         super(type, level);
     }
 
+    @Override
+    protected void defineSynchedData(SynchedEntityData.Builder builder) {
+        super.defineSynchedData(builder);
+        builder.define(ATTACK_STATE, 0);
+        builder.define(ATTACK_ANIM_TICKS, 0);
+    }
+
     public static AttributeSupplier.Builder createAttributes() {
-        return Zombie.createAttributes()
+        return Monster.createMonsterAttributes()
                 .add(Attributes.MAX_HEALTH, 35.0)
                 .add(Attributes.ATTACK_DAMAGE, 0.0) // Damage comes from skills
                 .add(Attributes.MOVEMENT_SPEED, 0.25)
@@ -56,6 +76,15 @@ public class WardEntity extends Zombie {
             if (biteCooldown > 0) biteCooldown--;
             if (leapCooldown > 0) leapCooldown--;
 
+            // Tick down animation
+            int anim = this.entityData.get(ATTACK_ANIM_TICKS);
+            if (anim > 0) {
+                this.entityData.set(ATTACK_ANIM_TICKS, anim - 1);
+                if (anim - 1 <= 0) {
+                    this.entityData.set(ATTACK_STATE, 0);
+                }
+            }
+
             LivingEntity target = this.getTarget();
             if (target != null && target.isAlive()) {
                 double dist = this.distanceTo(target);
@@ -72,10 +101,20 @@ public class WardEntity extends Zombie {
                     leapCooldown = 240;
                 }
             }
+        } else {
+            // Client-side: tick down anim
+            int anim = this.entityData.get(ATTACK_ANIM_TICKS);
+            if (anim > 0) {
+                this.entityData.set(ATTACK_ANIM_TICKS, anim - 1);
+            }
         }
     }
 
     private void performBite() {
+        // Set bite animation
+        this.entityData.set(ATTACK_STATE, 1);
+        this.entityData.set(ATTACK_ANIM_TICKS, 10);
+
         Level level = this.level();
         AABB area = this.getBoundingBox().inflate(4.0);
         List<LivingEntity> nearby = level.getEntitiesOfClass(LivingEntity.class, area,
@@ -90,12 +129,15 @@ public class WardEntity extends Zombie {
     }
 
     private void performLeap(LivingEntity target) {
+        // Set leap animation
+        this.entityData.set(ATTACK_STATE, 2);
+        this.entityData.set(ATTACK_ANIM_TICKS, 15);
+
         // Calculate leap vector toward target (breeze-like)
         Vec3 direction = target.position().subtract(this.position());
         double horizontalDist = direction.horizontalDistance();
 
         if (horizontalDist > 0) {
-            // Normalize horizontal direction, scale for leap
             double leapSpeed = 1.2;
             double leapHeight = 0.6;
 
@@ -110,6 +152,19 @@ public class WardEntity extends Zombie {
         }
 
         this.playSound(SoundEvents.BREEZE_JUMP, 1.5F, 2.0F);
+    }
+
+    /** Returns the current attack state: 0=idle, 1=biting, 2=leaping */
+    public int getAttackState() {
+        return this.entityData.get(ATTACK_STATE);
+    }
+
+    /** Returns 0.0-1.0 animation progress (1.0 = just started). */
+    public float getAttackAnimProgress() {
+        int state = getAttackState();
+        int ticks = this.entityData.get(ATTACK_ANIM_TICKS);
+        float max = state == 2 ? 15.0F : 10.0F;
+        return ticks / max;
     }
 
     @Nullable
@@ -143,18 +198,7 @@ public class WardEntity extends Zombie {
         return 2.0F;
     }
 
-    @Override
-    protected boolean isSunBurnTick() {
-        return false; // sunburn-proof
-    }
-
     public int getExperienceReward() {
         return 30 + this.random.nextInt(41); // 30-70 XP
     }
-
-    @Override
-    protected boolean convertsInWater() { return false; }
-
-    @Override
-    public boolean isBaby() { return false; }
 }

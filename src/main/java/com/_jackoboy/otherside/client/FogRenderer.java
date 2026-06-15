@@ -35,13 +35,13 @@ public class FogRenderer {
     private static final float OW_FOG_G = 0.52f;
     private static final float OW_FOG_B = 0.53f;
 
-    // ── Otherside dimension fog ──
-    // Very dark teal — like looking through deep water in a cave
-    private static final float DIM_FOG_R = 0.02f;
-    private static final float DIM_FOG_G = 0.05f;
-    private static final float DIM_FOG_B = 0.06f;
-    private static final float DIM_FOG_NEAR = 4.0f;
-    private static final float DIM_FOG_FAR = 56.0f; // ~3.5 chunks visibility
+    // ── Echo Dimension fog ──
+    // Dusky teal — oppressive but filmable; blends with the purple-grey sky
+    private static final float DIM_FOG_R = 0.10f;
+    private static final float DIM_FOG_G = 0.12f;
+    private static final float DIM_FOG_B = 0.15f;
+    private static final float DIM_FOG_NEAR = 8.0f;
+    private static final float DIM_FOG_FAR = 80.0f; // ~5 chunks visibility — filmable
 
     // ── W3: Maw mood fog ──
     private static final float MAW_FOG_R = 0.05f;

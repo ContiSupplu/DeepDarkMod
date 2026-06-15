@@ -32,7 +32,9 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.Portal;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
@@ -56,7 +58,7 @@ import java.util.UUID;
  * this block validates its surrounding frame via the {@code otherside:portal_frame}
  * block tag and handles portal transition logic for the Otherside dimension.
  */
-public class OthersidePortalBlock extends Block implements Portal {
+public class OthersidePortalBlock extends Block implements Portal, EntityBlock {
 
     /** Horizontal axis property — determines whether the portal faces X or Z. */
     public static final EnumProperty<Direction.Axis> AXIS = BlockStateProperties.HORIZONTAL_AXIS;
@@ -96,6 +98,16 @@ public class OthersidePortalBlock extends Block implements Portal {
     public OthersidePortalBlock(BlockBehaviour.Properties properties) {
         super(properties);
         this.registerDefaultState(this.stateDefinition.any().setValue(AXIS, Direction.Axis.X));
+    }
+
+    // ------------------------------------------------------------------
+    // Block entity (for custom portal renderer)
+    // ------------------------------------------------------------------
+
+    @Nullable
+    @Override
+    public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
+        return new OthersidePortalBlockEntity(pos, state);
     }
 
     // ------------------------------------------------------------------

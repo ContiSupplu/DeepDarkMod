@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "otherside:block/echo_portal_frame"
+    }
+  }
+}

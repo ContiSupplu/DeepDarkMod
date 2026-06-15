@@ -2,6 +2,8 @@
   "replace": false,
   "values": [
     "minecraft:reinforced_deepslate",
-    "otherside:charged_frame"
+    "otherside:charged_frame",
+    "otherside:echo_portal_frame"
   ]
 }
+

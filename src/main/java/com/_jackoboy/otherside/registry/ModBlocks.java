@@ -8,11 +8,14 @@ import com._jackoboy.otherside.block.ExtinguishedTorchBlock;
 import com._jackoboy.otherside.block.ExtinguishedWallTorchBlock;
 import com._jackoboy.otherside.block.ExtinguishedLanternBlock;
 import com._jackoboy.otherside.block.EchoFluidBlock;
+import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.*;
 import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockSetType;
+import net.minecraft.world.level.block.state.properties.WoodType;
 import net.minecraft.world.level.material.MapColor;
 import net.minecraft.world.level.material.PushReaction;
 import net.neoforged.neoforge.registries.DeferredBlock;
@@ -183,6 +186,141 @@ public class ModBlocks {
                     .sound(SoundType.LANTERN)
                     .noOcclusion()
                     .lightLevel(EchoLanternBlock::getLightEmission)));
+
+    // ════════════════════════════════════════════════════════════════════
+    // ── ECHO DIMENSION BLOCKS ──────────────────────────────────────────
+    // ════════════════════════════════════════════════════════════════════
+
+    // ── Terrain ──
+
+    /** Sculk grass — echo dimension surface block (3-texture top/side/bottom, self-lit). */
+    public static final DeferredBlock<Block> SCULK_GRASS = registerBlock("sculk_grass",
+            () -> new Block(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.COLOR_BLUE)
+                    .strength(0.6F)
+                    .sound(SoundType.SCULK)
+                    .lightLevel(state -> 5)));  // soft self-glow for the sculk ground
+
+    /** Sculk dirt — echo dimension sub-surface. */
+    public static final DeferredBlock<Block> SCULK_DIRT = registerBlock("sculk_dirt",
+            () -> new Block(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.COLOR_CYAN)
+                    .strength(0.5F)
+                    .sound(SoundType.SCULK)));
+
+    /** Sculk gravel — echo dimension shoreline/underwater block. */
+    public static final DeferredBlock<Block> SCULK_GRAVEL = registerBlock("sculk_gravel",
+            () -> new Block(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.COLOR_CYAN)
+                    .strength(0.6F)
+                    .sound(SoundType.SCULK)));
+
+    /** Sculk leaves — echo dimension foliage (no decay, non-occluding, faint glow). */
+    public static final DeferredBlock<Block> SCULK_LEAVES = registerBlock("sculk_leaves",
+            () -> new LeavesBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.COLOR_CYAN)
+                    .strength(0.2F)
+                    .sound(SoundType.SCULK_CATALYST)
+                    .noOcclusion()
+                    .isSuffocating((s, g, p) -> false)
+                    .isViewBlocking((s, g, p) -> false)
+                    .ignitedByLava()
+                    .lightLevel(state -> 2)));  // very subtle foliage glow
+
+    // ── Echo Wood Set (non-flammable) ──
+
+    /** Echo log — rotatable pillar (the echo dimension's wood). */
+    public static final DeferredBlock<Block> ECHO_LOG = registerBlock("echo_log",
+            () -> new RotatedPillarBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.COLOR_CYAN)
+                    .strength(2.0F)
+                    .sound(SoundType.SCULK_CATALYST)));
+
+    /** Stripped echo log. */
+    public static final DeferredBlock<Block> STRIPPED_ECHO_LOG = registerBlock("stripped_echo_log",
+            () -> new RotatedPillarBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.COLOR_CYAN)
+                    .strength(2.0F)
+                    .sound(SoundType.SCULK_CATALYST)));
+
+    /** Echo wood — bark on all sides (new echo wood type). */
+    public static final DeferredBlock<Block> ECHO_WOOD_BLOCK = registerBlock("echo_wood",
+            () -> new RotatedPillarBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.COLOR_CYAN)
+                    .strength(2.0F)
+                    .sound(SoundType.SCULK_CATALYST)));
+
+    /** Stripped echo wood. */
+    public static final DeferredBlock<Block> STRIPPED_ECHO_WOOD = registerBlock("stripped_echo_wood",
+            () -> new RotatedPillarBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.COLOR_CYAN)
+                    .strength(2.0F)
+                    .sound(SoundType.SCULK_CATALYST)));
+
+    /** Echo planks. */
+    public static final DeferredBlock<Block> ECHO_PLANKS = registerBlock("echo_planks",
+            () -> new Block(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.COLOR_CYAN)
+                    .strength(2.0F, 3.0F)
+                    .sound(SoundType.SCULK_CATALYST)));
+
+    /** Echo stairs. */
+    public static final DeferredBlock<Block> ECHO_STAIRS = registerBlock("echo_stairs",
+            () -> new StairBlock(ECHO_PLANKS.get().defaultBlockState(),
+                    BlockBehaviour.Properties.ofFullCopy(ECHO_PLANKS.get())));
+
+    /** Echo slab. */
+    public static final DeferredBlock<Block> ECHO_SLAB = registerBlock("echo_slab",
+            () -> new SlabBlock(BlockBehaviour.Properties.ofFullCopy(ECHO_PLANKS.get())));
+
+    /** Echo fence. */
+    public static final DeferredBlock<Block> ECHO_FENCE = registerBlock("echo_fence",
+            () -> new FenceBlock(BlockBehaviour.Properties.ofFullCopy(ECHO_PLANKS.get())));
+
+    /** Echo fence gate. */
+    public static final DeferredBlock<Block> ECHO_FENCE_GATE = registerBlock("echo_fence_gate",
+            () -> new FenceGateBlock(WoodType.OAK, BlockBehaviour.Properties.ofFullCopy(ECHO_PLANKS.get())));
+
+    /** Echo door. */
+    public static final DeferredBlock<Block> ECHO_DOOR = registerBlock("echo_door",
+            () -> new DoorBlock(BlockSetType.OAK, BlockBehaviour.Properties.ofFullCopy(ECHO_PLANKS.get())
+                    .noOcclusion()));
+
+    /** Echo trapdoor. */
+    public static final DeferredBlock<Block> ECHO_TRAPDOOR = registerBlock("echo_trapdoor",
+            () -> new TrapDoorBlock(BlockSetType.OAK, BlockBehaviour.Properties.ofFullCopy(ECHO_PLANKS.get())
+                    .noOcclusion()
+                    .isValidSpawn((s, g, p, e) -> false)));
+
+    /** Echo button. */
+    public static final DeferredBlock<Block> ECHO_BUTTON = registerBlock("echo_button",
+            () -> new ButtonBlock(BlockSetType.OAK, 30,
+                    BlockBehaviour.Properties.of()
+                            .noCollission()
+                            .strength(0.5F)
+                            .sound(SoundType.SCULK_CATALYST)
+                            .pushReaction(PushReaction.DESTROY)));
+
+    /** Echo pressure plate. */
+    public static final DeferredBlock<Block> ECHO_PRESSURE_PLATE = registerBlock("echo_pressure_plate",
+            () -> new PressurePlateBlock(BlockSetType.OAK,
+                    BlockBehaviour.Properties.of()
+                            .mapColor(MapColor.COLOR_CYAN)
+                            .noCollission()
+                            .strength(0.5F)
+                            .sound(SoundType.SCULK_CATALYST)
+                            .pushReaction(PushReaction.DESTROY)));
+
+    // ── Portal Frame ──
+
+    /** Echo portal frame — chiseled echo-brick for the dimension portal. */
+    public static final DeferredBlock<Block> ECHO_PORTAL_FRAME = registerBlock("echo_portal_frame",
+            () -> new Block(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.COLOR_CYAN)
+                    .requiresCorrectToolForDrops()
+                    .strength(55.0F, 1200.0F)
+                    .lightLevel(state -> 3)
+                    .sound(SoundType.DEEPSLATE)));
 
     // Helper methods
     private static DeferredBlock<Block> registerBlock(String name, Supplier<Block> block) {

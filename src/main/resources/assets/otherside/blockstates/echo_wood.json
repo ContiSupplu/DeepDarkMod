@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "axis=y": {
+      "model": "otherside:block/echo_wood"
+    },
+    "axis=z": {
+      "model": "otherside:block/echo_wood",
+      "x": 90
+    },
+    "axis=x": {
+      "model": "otherside:block/echo_wood",
+      "x": 90,
+      "y": 90
+    }
+  }
+}

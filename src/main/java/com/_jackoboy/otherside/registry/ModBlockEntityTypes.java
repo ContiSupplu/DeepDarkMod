@@ -2,6 +2,7 @@ package com._jackoboy.otherside.registry;
 
 import com._jackoboy.otherside.OthersideMod;
 import com._jackoboy.otherside.block.EchoLanternBlockEntity;
+import com._jackoboy.otherside.block.OthersidePortalBlockEntity;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.neoforged.neoforge.registries.DeferredHolder;
@@ -15,4 +16,10 @@ public class ModBlockEntityTypes {
             BLOCK_ENTITY_TYPES.register("echo_lantern", () ->
                     BlockEntityType.Builder.of(EchoLanternBlockEntity::new, ModBlocks.ECHO_LANTERN_BLOCK.get())
                             .build(null));
+
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<OthersidePortalBlockEntity>> OTHERSIDE_PORTAL =
+            BLOCK_ENTITY_TYPES.register("otherside_portal", () ->
+                    BlockEntityType.Builder.of(OthersidePortalBlockEntity::new, ModBlocks.OTHERSIDE_PORTAL.get())
+                            .build(null));
 }
+

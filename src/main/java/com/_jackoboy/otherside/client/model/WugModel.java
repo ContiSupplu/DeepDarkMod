@@ -1,5 +1,6 @@
 package com._jackoboy.otherside.client.model;
 
+import com._jackoboy.otherside.entity.WugEntity;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.model.EntityModel;
@@ -9,9 +10,8 @@ import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.client.model.geom.builders.*;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
-import net.minecraft.world.entity.Entity;
 
-public class WugModel<T extends Entity> extends EntityModel<T> {
+public class WugModel<T extends WugEntity> extends EntityModel<T> {
     public static final ModelLayerLocation LAYER = new ModelLayerLocation(
             ResourceLocation.fromNamespaceAndPath("otherside", "wug"), "main");
 
@@ -106,11 +106,36 @@ public class WugModel<T extends Entity> extends EntityModel<T> {
         this.rightLeg2.zRot = 0.3F - Mth.cos(legSwing + (float) Math.PI * 1.66F) * legAmount;
         this.rightLeg3.zRot = 0.3F - Mth.cos(legSwing + (float) Math.PI * 0.33F) * legAmount;
 
-        // Jaw slight open/close
+        // Jaw idle breathing
         this.jaw.xRot = 0.1F + Mth.sin(ageInTicks * 0.1F) * 0.05F;
 
         // Dorsal fin sway
         this.dorsalFin.yRot = Mth.sin(ageInTicks * 0.05F) * 0.1F;
+
+        // === ATTACK ANIMATION ===
+        float attackProgress = entity.getAttackAnimProgress();
+        if (attackProgress > 0) {
+            // Jaw snaps open wide (0.8 rad at peak)
+            float jawOpen = Mth.sin(attackProgress * (float) Math.PI) * 0.8F;
+            this.jaw.xRot = jawOpen;
+
+            // Head lunges forward
+            this.head.xRot += Mth.sin(attackProgress * (float) Math.PI) * 0.3F;
+
+            // Body dips slightly
+            this.body.xRot = Mth.sin(attackProgress * (float) Math.PI) * 0.15F;
+
+            // Legs splay out during attack
+            float splay = attackProgress * 0.3F;
+            this.leftLeg1.zRot -= splay;
+            this.leftLeg2.zRot -= splay;
+            this.leftLeg3.zRot -= splay;
+            this.rightLeg1.zRot += splay;
+            this.rightLeg2.zRot += splay;
+            this.rightLeg3.zRot += splay;
+        } else {
+            this.body.xRot = 0;
+        }
     }
 
     @Override

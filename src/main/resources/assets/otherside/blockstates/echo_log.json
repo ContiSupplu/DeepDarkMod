@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "axis=y": {
+      "model": "otherside:block/echo_log"
+    },
+    "axis=z": {
+      "model": "otherside:block/echo_log_horizontal",
+      "x": 90
+    },
+    "axis=x": {
+      "model": "otherside:block/echo_log_horizontal",
+      "x": 90,
+      "y": 90
+    }
+  }
+}

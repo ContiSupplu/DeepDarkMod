@@ -1,13 +1,14 @@
 package com._jackoboy.otherside.entity;
 
 import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.damagesource.DamageSource;
-import net.minecraft.world.effect.MobEffectInstance;
-import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
@@ -17,7 +18,7 @@ import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.*;
 import net.minecraft.world.entity.ai.goal.target.NearestAttackableTargetGoal;
-import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.AABB;
@@ -27,20 +28,37 @@ import net.minecraft.resources.ResourceLocation;
 import javax.annotation.Nullable;
 import java.util.List;
 
-public class WarbEntity extends Zombie {
+/**
+ * Warb — heavy sculk brute. AOE slam deals 18 damage in 3-block radius.
+ * Scream boosts speed 1.5x for 8 seconds. Massive asymmetric arms, tendrils.
+ */
+public class WarbEntity extends Monster {
     private static final ResourceLocation SCREAM_SPEED_ID =
             ResourceLocation.fromNamespaceAndPath("otherside", "warb_scream_speed");
+
+    /** 0 = idle, 1 = slamming, 2 = screaming */
+    private static final EntityDataAccessor<Integer> ATTACK_STATE =
+            SynchedEntityData.defineId(WarbEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> ATTACK_ANIM_TICKS =
+            SynchedEntityData.defineId(WarbEntity.class, EntityDataSerializers.INT);
 
     private int slamCooldown = 0;
     private int screamCooldown = 0;
     private int speedBoostTicks = 0;
 
-    public WarbEntity(EntityType<? extends Zombie> type, Level level) {
+    public WarbEntity(EntityType<? extends Monster> type, Level level) {
         super(type, level);
     }
 
+    @Override
+    protected void defineSynchedData(SynchedEntityData.Builder builder) {
+        super.defineSynchedData(builder);
+        builder.define(ATTACK_STATE, 0);
+        builder.define(ATTACK_ANIM_TICKS, 0);
+    }
+
     public static AttributeSupplier.Builder createAttributes() {
-        return Zombie.createAttributes()
+        return Monster.createMonsterAttributes()
                 .add(Attributes.MAX_HEALTH, 50.0)
                 .add(Attributes.ATTACK_DAMAGE, 0.0) // Damage comes from skills
                 .add(Attributes.MOVEMENT_SPEED, 0.25)
@@ -74,6 +92,15 @@ public class WarbEntity extends Zombie {
                 }
             }
 
+            // Tick down animation
+            int anim = this.entityData.get(ATTACK_ANIM_TICKS);
+            if (anim > 0) {
+                this.entityData.set(ATTACK_ANIM_TICKS, anim - 1);
+                if (anim - 1 <= 0) {
+                    this.entityData.set(ATTACK_STATE, 0);
+                }
+            }
+
             LivingEntity target = this.getTarget();
             if (target != null && target.isAlive()) {
                 double dist = this.distanceTo(target);
@@ -90,10 +117,20 @@ public class WarbEntity extends Zombie {
                     screamCooldown = 640;
                 }
             }
+        } else {
+            // Client-side: tick down anim
+            int anim = this.entityData.get(ATTACK_ANIM_TICKS);
+            if (anim > 0) {
+                this.entityData.set(ATTACK_ANIM_TICKS, anim - 1);
+            }
         }
     }
 
     private void performAoeSlam() {
+        // Set slam animation
+        this.entityData.set(ATTACK_STATE, 1);
+        this.entityData.set(ATTACK_ANIM_TICKS, 12);
+
         Level level = this.level();
         AABB area = this.getBoundingBox().inflate(3.0);
         List<LivingEntity> nearby = level.getEntitiesOfClass(LivingEntity.class, area,
@@ -124,6 +161,10 @@ public class WarbEntity extends Zombie {
     }
 
     private void performScream() {
+        // Set scream animation
+        this.entityData.set(ATTACK_STATE, 2);
+        this.entityData.set(ATTACK_ANIM_TICKS, 20);
+
         // Play warden roar
         this.level().playSound(null, this.blockPosition(),
                 SoundEvents.WARDEN_ROAR, SoundSource.HOSTILE, 2.0F, 2.0F);
@@ -143,9 +184,7 @@ public class WarbEntity extends Zombie {
     private void applySpeedBoost() {
         AttributeInstance speedAttr = this.getAttribute(Attributes.MOVEMENT_SPEED);
         if (speedAttr != null) {
-            // Remove existing modifier first if present
             speedAttr.removeModifier(SCREAM_SPEED_ID);
-            // 0.5x multiplier on base speed => 1.5x total (MULTIPLY_BASE adds base * multiplier)
             speedAttr.addTransientModifier(new AttributeModifier(
                     SCREAM_SPEED_ID, 0.5, AttributeModifier.Operation.ADD_MULTIPLIED_BASE));
         }
@@ -156,6 +195,19 @@ public class WarbEntity extends Zombie {
         if (speedAttr != null) {
             speedAttr.removeModifier(SCREAM_SPEED_ID);
         }
+    }
+
+    /** Returns the current attack state: 0=idle, 1=slamming, 2=screaming */
+    public int getAttackState() {
+        return this.entityData.get(ATTACK_STATE);
+    }
+
+    /** Returns 0.0-1.0 animation progress (1.0 = just started). */
+    public float getAttackAnimProgress() {
+        int state = getAttackState();
+        int ticks = this.entityData.get(ATTACK_ANIM_TICKS);
+        float max = state == 2 ? 20.0F : 12.0F;
+        return max > 0 ? ticks / max : 0;
     }
 
     @Nullable
@@ -189,18 +241,7 @@ public class WarbEntity extends Zombie {
         return 2.0F;
     }
 
-    @Override
-    protected boolean isSunBurnTick() {
-        return false; // sunburn-proof
-    }
-
     public int getExperienceReward() {
         return 20 + this.random.nextInt(41); // 20-60 XP
     }
-
-    @Override
-    protected boolean convertsInWater() { return false; }
-
-    @Override
-    public boolean isBaby() { return false; }
 }

@@ -1,0 +1,94 @@
+{
+  "temperature": 0.5,
+  "downfall": 0,
+  "has_precipitation": false,
+  "effects": {
+    "fog_color": 2631720,
+    "sky_color": 3949671,
+    "water_color": 1765375,
+    "water_fog_color": 684175,
+    "grass_color": 1716272,
+    "foliage_color": 1716272,
+    "mood_sound": {
+      "sound": "otherside:otherside_ambient_loop",
+      "tick_delay": 4000,
+      "block_search_extent": 8,
+      "offset": 2.0
+    },
+    "particle": {
+      "options": {
+        "type": "minecraft:warped_spore"
+      },
+      "probability": 0.006
+    }
+  },
+  "spawners": {
+    "monster": [
+      {
+        "type": "otherside:echo_soul",
+        "weight": 6,
+        "minCount": 1,
+        "maxCount": 2
+      },
+      {
+        "type": "otherside:wug",
+        "weight": 8,
+        "minCount": 2,
+        "maxCount": 4
+      },
+      {
+        "type": "otherside:ward",
+        "weight": 4,
+        "minCount": 1,
+        "maxCount": 2
+      },
+      {
+        "type": "otherside:warb",
+        "weight": 2,
+        "minCount": 1,
+        "maxCount": 1
+      }
+    ],
+    "creature": [],
+    "ambient": [],
+    "underground_water_creature": [],
+    "water_creature": [],
+    "water_ambient": [],
+    "misc": [],
+    "axolotls": []
+  },
+  "spawn_costs": {
+    "otherside:echo_soul": {
+      "energy_budget": 0.12,
+      "charge": 1.0
+    },
+    "otherside:wug": {
+      "energy_budget": 0.12,
+      "charge": 0.8
+    },
+    "otherside:ward": {
+      "energy_budget": 0.12,
+      "charge": 1.0
+    },
+    "otherside:warb": {
+      "energy_budget": 0.12,
+      "charge": 1.5
+    }
+  },
+  "carvers": {
+    "air": ["minecraft:cave", "minecraft:cave_extra_underground", "minecraft:canyon"]
+  },
+  "features": [
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    ["otherside:echo_tree"],
+    ["minecraft:amethyst_geode"],
+    []
+  ]
+}

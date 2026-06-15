@@ -1,0 +1,8 @@
+{
+  "replace": false,
+  "values": [
+    "otherside:sculk_grass",
+    "otherside:sculk_dirt",
+    "otherside:sculk_gravel"
+  ]
+}

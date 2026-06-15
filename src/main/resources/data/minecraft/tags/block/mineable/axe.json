@@ -1,0 +1,18 @@
+{
+  "replace": false,
+  "values": [
+    "otherside:echo_log",
+    "otherside:stripped_echo_log",
+    "otherside:echo_wood",
+    "otherside:stripped_echo_wood",
+    "otherside:echo_planks",
+    "otherside:echo_stairs",
+    "otherside:echo_slab",
+    "otherside:echo_fence",
+    "otherside:echo_fence_gate",
+    "otherside:echo_door",
+    "otherside:echo_trapdoor",
+    "otherside:echo_button",
+    "otherside:echo_pressure_plate"
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "otherside:echo_log",
+    "otherside:stripped_echo_log",
+    "otherside:echo_wood",
+    "otherside:stripped_echo_wood"
+  ]
+}

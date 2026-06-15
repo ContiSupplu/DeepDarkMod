@@ -14,6 +14,7 @@ import com._jackoboy.otherside.client.renderer.WugRenderer;
 import com._jackoboy.otherside.client.renderer.MawTentacleRenderer;
 import com._jackoboy.otherside.client.renderer.EchoSoulRenderer;
 import com._jackoboy.otherside.client.renderer.ListeningBloomRenderer;
+import com._jackoboy.otherside.client.renderer.OthersidePortalRenderer;
 import com._jackoboy.otherside.entity.MawTentacleEntity;
 import com._jackoboy.otherside.entity.EchoSoulEntity;
 import com._jackoboy.otherside.entity.ListeningBloomEntity;
@@ -21,6 +22,7 @@ import com._jackoboy.otherside.entity.WarbEntity;
 import com._jackoboy.otherside.entity.WardEntity;
 import com._jackoboy.otherside.entity.WugEntity;
 import com._jackoboy.otherside.network.ModNetworking;
+import com._jackoboy.otherside.registry.ModBlockEntityTypes;
 import com._jackoboy.otherside.registry.ModEntityTypes;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -59,6 +61,7 @@ public class ModBusEvents {
         event.registerEntityRenderer(ModEntityTypes.MAW_TENTACLE.get(), MawTentacleRenderer::new);
         event.registerEntityRenderer(ModEntityTypes.ECHO_SOUL.get(), EchoSoulRenderer::new);
         event.registerEntityRenderer(ModEntityTypes.LISTENING_BLOOM.get(), ListeningBloomRenderer::new);
+        event.registerBlockEntityRenderer(ModBlockEntityTypes.OTHERSIDE_PORTAL.get(), OthersidePortalRenderer::new);
     }
 
     @SubscribeEvent

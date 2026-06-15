@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "end": "otherside:block/stripped_echo_log",
+    "side": "otherside:block/stripped_echo_log"
+  }
+}
