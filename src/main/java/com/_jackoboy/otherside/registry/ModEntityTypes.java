@@ -57,7 +57,7 @@ public class ModEntityTypes {
 
     public static final DeferredHolder<EntityType<?>, EntityType<WhisperingEchoEntity>> WHISPERING_ECHO =
             ENTITY_TYPES.register("whispering_echo", () -> EntityType.Builder.of(WhisperingEchoEntity::new, MobCategory.CREATURE)
-                    .sized(0.5F, 0.5F)
+                    .sized(0.7F, 0.7F)
                     .clientTrackingRange(10)
                     .build("otherside:whispering_echo"));
 }
