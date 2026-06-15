@@ -25,7 +25,9 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LightLayer;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.LevelReader;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -446,11 +448,10 @@ public class EchoSoulEntity extends Monster {
             return;
         } else {
             leashStrainTimer = 0;
-        }
-
-        if (isNearAmethyst(cachedTarget.blockPosition())) {
-            cachedTarget = null; targetUUID = null; hasLockedThisTarget = false;
-            setState(SoulState.WANDER); return;
+            if (isNearAmethyst(this.level(), cachedTarget.blockPosition())) {
+                cachedTarget = null; targetUUID = null; hasLockedThisTarget = false;
+                setState(SoulState.WANDER); return;
+            }
         }
 
         this.getNavigation().moveTo(cachedTarget, 0.6);
@@ -484,7 +485,7 @@ public class EchoSoulEntity extends Monster {
             setState(SoulState.WANDER); return;
         }
         if (!hasLineOfSight(cachedTarget)) { setState(SoulState.STALK); return; }
-        if (isNearAmethyst(cachedTarget.blockPosition())) {
+        if (isNearAmethyst(this.level(), cachedTarget.blockPosition())) {
             cachedTarget = null; targetUUID = null; hasLockedThisTarget = false;
             setState(SoulState.WANDER); return;
         }
@@ -699,7 +700,7 @@ public class EchoSoulEntity extends Monster {
 
             if (dest.distToCenterSqr(target.getX(), target.getY(), target.getZ()) > range * range) continue;
             if (!level.getBlockState(dest).getCollisionShape(level, dest).isEmpty()) continue;
-            if (isNearAmethyst(dest)) continue;
+            if (isNearAmethyst(level, dest)) continue;
             if (level.getBrightness(LightLayer.BLOCK, dest) >= OthersideConfig.SERVER.echoSoulLightDeterLevel.get()) continue;
             // §3: don't teleport outside claimed territory
             if (!inClaimedTerritory(dest)) continue;
@@ -739,7 +740,7 @@ public class EchoSoulEntity extends Monster {
             double dist = this.distanceTo(player);
             if (dist > range) continue;
             if (!hasLineOfSight(player)) continue;
-            if (isNearAmethyst(player.blockPosition())) continue;
+            if (isNearAmethyst(this.level(), player.blockPosition())) continue;
             if (dist < closestDist) { closestDist = dist; closest = player; }
         }
         return closest;
@@ -753,8 +754,28 @@ public class EchoSoulEntity extends Monster {
     }
 
     // ── Counterplay helpers ──────────────────────────────────────────
-    public static boolean isNearAmethyst(BlockPos center) {
-        return false; // Stub — fully implemented when amethyst system is in
+    /**
+     * Returns true if any amethyst ward block (AMETHYST_BLOCK or BUDDING_AMETHYST)
+     * is within {@code amethystWardRadius} of the given position.
+     * <p>
+     * Used by echo soul AI (repel/detection/teleport) AND corruption gain suppression.
+     * One ward definition, no divergence.
+     */
+    public static boolean isNearAmethyst(LevelReader level, BlockPos center) {
+        int radius = OthersideConfig.SERVER.amethystWardRadius.get();
+        BlockPos.MutableBlockPos probe = new BlockPos.MutableBlockPos();
+        for (int dx = -radius; dx <= radius; dx++) {
+            for (int dy = -radius; dy <= radius; dy++) {
+                for (int dz = -radius; dz <= radius; dz++) {
+                    probe.set(center.getX() + dx, center.getY() + dy, center.getZ() + dz);
+                    BlockState state = level.getBlockState(probe);
+                    if (state.is(Blocks.AMETHYST_BLOCK) || state.is(Blocks.BUDDING_AMETHYST)) {
+                        return true; // Early exit on first match
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     // ── Dissipate helper ─────────────────────────────────────────────

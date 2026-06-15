@@ -3,6 +3,7 @@ package com._jackoboy.otherside.corruption;
 import com._jackoboy.otherside.OthersideConfig;
 import com._jackoboy.otherside.OthersideMod;
 import com._jackoboy.otherside.dimension.DimensionRulesManager;
+import com._jackoboy.otherside.entity.EchoSoulEntity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -18,9 +19,8 @@ import net.minecraft.world.level.LightLayer;
  *   ONCE per 20-tick cycle — i.e. exactly corruptionGainPerSec per second.
  * - Applies/refreshes MobEffects based on thresholds.
  * <p>
- * NOTE: isNearAmethyst() is a stub (returns false). Pass 1 uses light-only ward.
- * The amethyst ward is the next real mechanic after corruption — it's load-bearing
- * for soul counterplay, corruption suppression, and safe havens all at once.
+ * Ward check: player is warded (gain suppressed) if block light >= threshold
+ * OR an amethyst block/budding amethyst is within amethystWardRadius.
  */
 public final class CorruptionManager {
     private CorruptionManager() {}
@@ -42,9 +42,8 @@ public final class CorruptionManager {
             // ── Gain (only in Echo dimension, only if unwarded) ──
             if (inEchoDim) {
                 int blockLight = player.level().getBrightness(LightLayer.BLOCK, player.blockPosition());
-                boolean warded = blockLight >= lightThreshold;
-                // NOTE: isNearAmethyst() is a stub — when amethyst ward is implemented,
-                // add: warded = warded || EchoSoulEntity.isNearAmethyst(player.blockPosition());
+                boolean warded = blockLight >= lightThreshold
+                        || EchoSoulEntity.isNearAmethyst(player.level(), player.blockPosition());
 
                 if (!warded) {
                     // Add gainPerCycle ONCE per 20-tick cycle = gainPerCycle per second

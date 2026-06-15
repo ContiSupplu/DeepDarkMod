@@ -7,6 +7,7 @@ import com._jackoboy.otherside.entity.WardEntity;
 import com._jackoboy.otherside.entity.MawTentacleEntity;
 import com._jackoboy.otherside.entity.EchoSoulEntity;
 import com._jackoboy.otherside.entity.ListeningBloomEntity;
+import com._jackoboy.otherside.entity.WhisperingEchoEntity;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
@@ -53,4 +54,10 @@ public class ModEntityTypes {
                     .sized(1.2F, 1.2F)
                     .clientTrackingRange(16)
                     .build("otherside:listening_bloom"));
+
+    public static final DeferredHolder<EntityType<?>, EntityType<WhisperingEchoEntity>> WHISPERING_ECHO =
+            ENTITY_TYPES.register("whispering_echo", () -> EntityType.Builder.of(WhisperingEchoEntity::new, MobCategory.CREATURE)
+                    .sized(0.5F, 0.5F)
+                    .clientTrackingRange(10)
+                    .build("otherside:whispering_echo"));
 }

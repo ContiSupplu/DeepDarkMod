@@ -250,7 +250,7 @@ public class EchoSoulManager {
             if (level.getBrightness(net.minecraft.world.level.LightLayer.BLOCK, candidate) >= lightDeter) continue;
 
             // Not near amethyst
-            if (EchoSoulEntity.isNearAmethyst(candidate)) continue;
+            if (EchoSoulEntity.isNearAmethyst(level, candidate)) continue;
 
             // Not inside a player build
             if (beast.isPlayerPlaced(candidate) || beast.isPlayerPlaced(candidate.above())) continue;

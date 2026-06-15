@@ -94,6 +94,7 @@ public class OthersideConfig {
         public final ModConfigSpec.IntValue echoSoulGlobalCap;
         public final ModConfigSpec.IntValue echoSoulLightDeterLevel;
         public final ModConfigSpec.BooleanValue echoSoulAmethystRepel;
+        public final ModConfigSpec.IntValue amethystWardRadius;
         public final ModConfigSpec.BooleanValue echoSoulTeleportEnabled;
         public final ModConfigSpec.IntValue echoSoulTeleportCooldownTicks;
         public final ModConfigSpec.IntValue echoSoulTeleportRange;
@@ -314,6 +315,8 @@ public class OthersideConfig {
                     .defineInRange("echoSoulLightDeterLevel", 8, 0, 15);
             echoSoulAmethystRepel = builder.comment("Souls refuse amethyst-warded areas; placed amethyst breaks lock")
                     .define("echoSoulAmethystRepel", true);
+            amethystWardRadius = builder.comment("Block radius an amethyst block wards/repels within (for souls and corruption)")
+                    .defineInRange("amethystWardRadius", 4, 1, 16);
             echoSoulTeleportEnabled = builder.comment("Enable enderman-style teleport blinks")
                     .define("echoSoulTeleportEnabled", true);
             echoSoulTeleportCooldownTicks = builder.comment("Ticks between teleport blinks (~3.5s)")
